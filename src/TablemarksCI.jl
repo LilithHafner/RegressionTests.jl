@@ -1,14 +1,10 @@
 module TablemarksCI
 
+export @b_AUTO
+
 using Random
 using JuliaSyntax
 include("juliasyntax.jl")
-include("transformations.jl")
-
-# macro b_AUTO(ex...)
-#     isempty(ex) ? nothing : first(ex)
-# end
-
-
+include("b_auto.jl")
 
 end
