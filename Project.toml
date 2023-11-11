@@ -4,15 +4,17 @@ authors = ["Lilith Orion Hafner <lilithhafner@gmail.com> and contributors"]
 version = "0.0.0"
 
 [deps]
-Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
+JuliaSyntax = "0.4.6"
 julia = "1"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "Test"]
+test = ["Aqua", "StableRNGs", "Test"]
