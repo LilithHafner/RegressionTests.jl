@@ -253,8 +253,8 @@ end
 
 Determine if `f()` and `g()` have different distributions.
 
-Returns `true` if `f` and `g` have different distributions and usually returns `false` if
-they have similar distributions.
+Returns `false` if `f` and `g` have the same distribution and usually returns `true` if
+they have different distributions.
 
 Properties
 
