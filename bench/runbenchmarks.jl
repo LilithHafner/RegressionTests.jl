@@ -1,12 +1,19 @@
-println("Hi!")
-println(pwd())
+# println("Hi!")
+# println(pwd())
 import Pkg
-println(Pkg.status())
+# println(Pkg.status())
+using TablemarksCI
 using Chairmarks
+@b 1+1
+@be 1+1
 
-for n in [1, 10, 100]
-    x = @be n rand
-    @track minimum(be).times
-    @track median(be).times
-    @track mean(be).times
+for n in 1:50
+    res = @be n rand
+    @track minimum(res).time
+    @track Chairmarks.median(res).time
+    @track Chairmarks.mean(res).time
+end
+
+for k in 1:10_000_000
+    @track k
 end

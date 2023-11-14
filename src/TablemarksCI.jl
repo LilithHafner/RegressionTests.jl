@@ -16,7 +16,7 @@ function runbenchmarks(;
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         primary = "dev",
         comparison = "main",
-        workers = min(8, Sys.CPU_THREADS),
+        workers = 15,#Sys.CPU_THREADS,
         )
 
     commands = Vector{Cmd}(undef, workers)
@@ -30,49 +30,43 @@ function runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        script = "using TablemarksCI: _runbenchmarks3; _runbenchmarks3($rfile, $(repr(channels[i])))"
+        script = "let; include($rfile); end; using TablemarksCI, Serialization; serialize($(repr(channels[i])), (TablemarksCI.METADATA3, TablemarksCI.DATA2))"
         commands[i] = `$julia_exe --project=$(projects[i]) -e $script`
     end
-    pkg_lock = ReentrantLock() # I'm not sure if Pkg can be used in multiple environments from multiple tasks at the same time
     data_lock = ReentrantLock() # I know this is not thread safe
     metadatas = Vector{Tuple{Symbol, Int, String}}[]
     datas = Vector{Vector{Float64}}[]
 
-    revs = shuffle!(repeat([primary, comparison], 2))
+    revs = shuffle!(repeat([primary, comparison], 30))
     worker_pool = Channel{Int}(workers)
     put!.(Ref(worker_pool), 1:workers)
 
+    print("0/$(length(revs))")
     @sync for rev in revs
         worker = take!(worker_pool)
-        println("A")
         Pkg.activate(projects[worker], io=devnull)
-        println("B")
         if rev == "dev"
             Pkg.develop(PackageSpec(path=project), io=devnull)
         else
             Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
         end
         Pkg.instantiate(io=devnull)
-        println("C")
-        begin # @async begin
-            println("D")
-            println(commands[worker])
+        @async begin
             run(commands[worker], wait=true)
-
-            println("F")
-            println(channels[worker])
-            println(isfile(channels[worker]))
             m, d = deserialize(channels[worker])
-            println("Pass")
-            push!(metadatas, m)
-            push!(datas, d)
-            # TODO: make this data transfer more efficient and/or give better errors
-            allequal(metadatas) || error("Metadata mismatch")
-            allequal(length.(d) for d in datas) || error("Data length mismatch")
-            println("F")
+            lock(data_lock) do
+                push!(metadatas, m)
+                push!(datas, d)
+                # TODO: make this data transfer more efficient and/or give better errors
+                allequal(metadatas) || error("Metadata mismatch")
+                allequal(length.(d) for d in datas) || error("Data length mismatch")
+                print("\r$(length(datas))/$(length(revs))")
+                flush(stdout)
+            end
             put!(worker_pool, worker)
         end
     end
+    println()
 
     return metadatas, datas
 end
@@ -87,13 +81,6 @@ macro track(expr)
     i = lastindex(DATA2)
     push!(METADATA3, (__source__.file, __source__.line, string(expr)))
     :(push!(DATA2[$i], Float64($(esc(expr)))))
-end
-function _runbenchmarks3(file, destination)
-    include(file)
-    println("AAAA")
-    serialize(destination, (METADATA3, DATA2))
-    println(destination)
-    println(isfile(destination))
 end
 
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
