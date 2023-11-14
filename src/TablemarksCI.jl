@@ -13,19 +13,55 @@ include("juliasyntax.jl")
 include("b_auto.jl")
 
 function runbenchmarks(;
-        project = joinpath(dirname(pwd()), "bench"), # run from test directory
-        file = joinpath(project, "runbenchmarks.jl"),
+        project = dirname(pwd()), # run from test directory
+        bench_project = joinpath(project, "bench"),
+        bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         fix_auto = !CI[],
+        primary = "dev",
+        comparison = "main",
+        threads = min(8, Sys.CPU_THREADS),
         )
 
-    temp = tempname()
-    cmd = "using TablemarksCI: skim; skim(open($(repr(temp)), \"w\"), $(repr(file)), $(repr(fix_auto)))"
-    cd(project) do
+
+    projects = [tempname() for _ in 1:threads]
+    channels = [tempname() for _ in 1:threads]
+    input = tempname()
+    mkdir.(projects)
+    bench_projectfile = joinpath(bench_project, "Project.toml")
+    isfile(bench_projectfile) && cp.(Ref(bench_projectfile), projects)
+
+    function setup(rev, i)
+        Pkg.activate(projects[i])
+        if rev == "dev"
+            Pkg.develop(PackageSpec(path=project))
+        else
+            Pkg.pin(PackageSpec(name="TablemarksCI", rev=rev))
+        end
+    end
+
+    setup(comparison, 1)
+    cmd = "using TablemarksCI: skim; skim($(repr(channels[i])), $(repr(file)))"
+    println(cmd)
+    run(`julia --project $(projects[1]) -e $cmd`)
+    cp(channels[1], input)
+    setup(primary, 1)
+    cmd = "using TablemarksCI: skim; skim($(repr(channels[i])), $(repr(file))$(fix_auto ? ", "*repr(input) : ""))"
+    println(cmd)
+    run(`julia --project $(projects[1]) -e $cmd`)
+
+
+    cp(project, dirs[1])
+
+    cd(dirs1) do
         run(`julia --project -e $cmd`)
     end
     ids = reinterpret(UInt128, read(temp))
     println.(repr.(ids))
 end
+function runbenchmarks_pkg()
+    runbenchmarks(project = dirname(Pkg.project().path))
+end
+
 const SKIM = Ref(false)
 const AUTO_ID_COUNT = Ref(0)
 const IDS = Set{UInt128}()
@@ -78,9 +114,6 @@ function skim(report::IO, source, fix_auto)
     end
     write.(report, sort!(collect(IDS)))
     flush(report)
-end
-function runbenchmarks_pkg()
-    runbenchmarks(project = joinpath(dirname(Pkg.project().path), "bench"))
 end
 
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
