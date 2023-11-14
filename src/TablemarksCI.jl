@@ -31,7 +31,7 @@ function runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        script = "let; using TablemarksCI, Serialization; TablemarksCI.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using TablemarksCI, Serialization; serialize($(repr(channels[i])), (TablemarksCI.METADATA3, TablemarksCI.DATA2))"
+        script = "let; using TablemarksCI, Serialization; TablemarksCI.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using TablemarksCI, Serialization; serialize($(repr(channels[i])), (TablemarksCI.METADATA3, TablemarksCI.DATA3))"
         commands[i] = `$julia_exe --project=$(projects[i]) -e $script`
     end
 
@@ -40,7 +40,7 @@ function runbenchmarks(;
     # TODO take a random shuffle that fails the first "plausibly different" test
     # so that things that are literally equal will never make it past the first round
     metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
-    datas = Vector{Vector{Vector{Float64}}}(undef, length(revs))
+    datas = Vector{Vector{Vector{Vector{Float64}}}}(undef, length(revs))
 
     worker_pool = Channel{Int}(workers)
     put!.(Ref(worker_pool), 1:workers)
@@ -62,7 +62,7 @@ function runbenchmarks(;
                 Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
             end
             Pkg.instantiate(io=devnull)
-            @async begin
+            begin#@async begin
                 run(commands[worker], wait=true)
                 m, d = deserialize(channels[worker])
                 put!(worker_pool, worker)
@@ -81,8 +81,9 @@ function runbenchmarks(;
         println()
         allequal(metadatas) || error("Metadata mismatch")
         allequal(length.(d) for d in datas) || error("Data length mismatch")
+        all(allequal(length.(d) for d in data) for data in datas[inds]) || error("Data inner length mismatch")
 
-        plausibly_different = [[are_different(revs, [datas[i][j][k] for i in eachindex(revs, datas)]) for k in eachindex(datas[1][j])] for j in eachindex(datas[1])]
+        plausibly_different = [[any(are_different(revs, [datas[i][j][k][l] for i in eachindex(revs, datas)]) for l in eachindex(data[end][j][k])) for k in eachindex(datas[1][j])] for j in eachindex(datas[1])]
         sc = sum(count, plausibly_different)
         sc == 0 && break
         println(sc, "/", sum(length, plausibly_different), " tracked results are plausibly different. Running more trials for them")
@@ -104,15 +105,15 @@ end
 
 const FILTER = Ref{Union{Nothing, Vector{Vector{Bool}}}}(nothing)
 const METADATA3 = Tuple{Symbol, Int, String}[]
-const DATA2 = Vector{Float64}[]
+const DATA3 = Vector{Vector{Float64}}[]
 macro track(expr)
-    push!(DATA2, Float64[])
-    i = lastindex(DATA2)
+    push!(DATA3, Vector{Float64}[])
+    i = lastindex(DATA3)
     push!(METADATA3, (__source__.file, __source__.line, string(expr)))
-    if FILTER[] === nothing || FILTER[][i][length(DATA2[i])+1]
-        :(push!(DATA2[$i], Float64($(esc(expr)))))
+    if FILTER[] === nothing || FILTER[][i][length(DATA3[i])+1]
+        :(push!(DATA3[$i], vec(collect(Float64.($(esc(expr)))))); nothing)
     else
-        :(push!(DATA2[$i], NaN))
+        :(push!(DATA3[$i], Float64[]); nothing)
     end
 end
 
