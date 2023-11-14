@@ -10,6 +10,10 @@ using Base.Threads
 export @track
 @compat public runbenchmarks
 
+# TODO track precompilation time
+# TODO track load time
+# TODO track TTFX
+
 function runbenchmarks(;
         project = dirname(pwd()), # run from test directory
         bench_project = joinpath(project, "bench"),
