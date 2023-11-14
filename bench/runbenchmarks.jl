@@ -7,13 +7,13 @@ using Chairmarks
 @b 1+1
 @be 1+1
 
-for n in 1:50
+for n in 1:10
     res = @be n rand
     @track minimum(res).time
     @track Chairmarks.median(res).time
     @track Chairmarks.mean(res).time
 end
 
-for k in 1:10_000_000
+for k in 1:1_000_000
     @track k
 end

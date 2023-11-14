@@ -22,6 +22,7 @@ function runbenchmarks(;
     commands = Vector{Cmd}(undef, workers)
     projects = [tempname() for _ in 1:workers]
     channels = [tempname() for _ in 1:workers]
+    filter_path = tempname()
     # bench_projectfile = joinpath(bench_project, "Project.toml")
     # bench_projectfile_exists = isfile(bench_projectfile)
     julia_exe = joinpath(Sys.BINDIR, "julia")
@@ -30,57 +31,82 @@ function runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        script = "let; include($rfile); end; using TablemarksCI, Serialization; serialize($(repr(channels[i])), (TablemarksCI.METADATA3, TablemarksCI.DATA2))"
+        script = "let; using TablemarksCI, Serialization; TablemarksCI.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using TablemarksCI, Serialization; serialize($(repr(channels[i])), (TablemarksCI.METADATA3, TablemarksCI.DATA2))"
         commands[i] = `$julia_exe --project=$(projects[i]) -e $script`
     end
-    data_lock = ReentrantLock() # I know this is not thread safe
-    metadatas = Vector{Tuple{Symbol, Int, String}}[]
-    datas = Vector{Vector{Float64}}[]
 
-    revs = shuffle!(repeat([primary, comparison], 30))
+    revs = shuffle!(repeat([primary, comparison], 45))
+    # TODO take a random shuffle that fails the first "plausibly different" test
+    # so that things that are literally equal will never make it past the first round
+    metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
+    datas = Vector{Vector{Vector{Float64}}}(undef, length(revs))
+
     worker_pool = Channel{Int}(workers)
     put!.(Ref(worker_pool), 1:workers)
 
-    print("0/$(length(revs))")
-    @sync for rev in revs
-        worker = take!(worker_pool)
-        Pkg.activate(projects[worker], io=devnull)
-        if rev == "dev"
-            Pkg.develop(PackageSpec(path=project), io=devnull)
-        else
-            Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
-        end
-        Pkg.instantiate(io=devnull)
-        @async begin
-            run(commands[worker], wait=true)
-            m, d = deserialize(channels[worker])
-            lock(data_lock) do
-                push!(metadatas, m)
-                push!(datas, d)
-                # TODO: make this data transfer more efficient and/or give better errors
-                allequal(metadatas) || error("Metadata mismatch")
-                allequal(length.(d) for d in datas) || error("Data length mismatch")
-                print("\r$(length(datas))/$(length(revs))")
-                flush(stdout)
+    inds = eachindex(revs)
+    print("waiting for preliminary results...")
+    display_lock = ReentrantLock()
+    plausibly_different = nothing
+    for i in 1:3
+        serialize(filter_path, plausibly_different)
+        count = 0
+        @sync for i in inds
+            rev = revs[i]
+            worker = take!(worker_pool)
+            Pkg.activate(projects[worker], io=devnull)
+            if rev == "dev"
+                Pkg.develop(PackageSpec(path=project), io=devnull)
+            else
+                Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
             end
-            put!(worker_pool, worker)
+            Pkg.instantiate(io=devnull)
+            @async begin
+                run(commands[worker], wait=true)
+                m, d = deserialize(channels[worker])
+                put!(worker_pool, worker)
+                metadatas[i] = m
+                datas[i] = d
+                lock(display_lock) do
+                    count += 1
+                    if count == 1 && i == 1
+                        println("\r", rpad("$(sum(length, datas[i])) tracked results", 34))
+                    end
+                    print("\r$count/$(length(inds))")
+                    flush(stdout)
+                end
+            end
         end
-    end
-    println()
+        println()
+        allequal(metadatas) || error("Metadata mismatch")
+        allequal(length.(d) for d in datas) || error("Data length mismatch")
 
-    return metadatas, datas
+        plausibly_different = [[are_different(revs, [datas[i][j][k] for i in eachindex(revs, datas)]) for k in eachindex(datas[1][j])] for j in eachindex(datas[1])]
+        sc = sum(count, plausibly_different)
+        sc == 0 && break
+        println(sc, "/", sum(length, plausibly_different), " tracked results are plausibly different. Running more trials for them")
+    end
+
+    # TODO throw on Inf or NaN
+    # Note literal equality is fine because we use a stable sort and the order is random
+    return metadata, plausibly_different
 end
 function runbenchmarks_pkg()
     runbenchmarks(project = dirname(Pkg.project().path))
 end
 
+const FILTER = Ref{Union{Nothing, Vector{Vector{Bool}}}}(nothing)
 const METADATA3 = Tuple{Symbol, Int, String}[]
 const DATA2 = Vector{Float64}[]
 macro track(expr)
     push!(DATA2, Float64[])
     i = lastindex(DATA2)
     push!(METADATA3, (__source__.file, __source__.line, string(expr)))
-    :(push!(DATA2[$i], Float64($(esc(expr)))))
+    if FILTER[] === nothing || FILTER[][i][length(DATA2[i])+1]
+        :(push!(DATA2[$i], Float64($(esc(expr)))))
+    else
+        :(push!(DATA2[$i], NaN))
+    end
 end
 
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
@@ -152,6 +178,27 @@ function differentiate(f, g)
         err < (Y[i]*X[i]^3)*4+X[i] && return false
         resize!(data, 2X[i+1])
     end
+    return true
+end
+
+const THRESHOLDS = Dict(45 => .005, 75 => .007, 120 => .008, 300 => .014)
+function are_different(tags, data)
+    length(tags) == length(data) || error("Length mismatch")
+    n = Int(length(tags)/2)
+    threshold = THRESHOLDS[n]
+    ut = unique(tags)
+    length(ut) == 2 || error("Expected two tags")
+    count(==(ut[1]), tags) == count(==(ut[2]), tags) == n || error("Expected equal counts")
+    perm = sortperm(data)
+    sum = 0
+    err = 0
+    for i in eachindex(data)
+        sum += tags[perm[i]] == ut[1]
+        delta = 2sum - i
+        err += delta^2
+    end
+    @assert sum === n
+    err < (threshold*n^3)*4+n && return false
     return true
 end
 
