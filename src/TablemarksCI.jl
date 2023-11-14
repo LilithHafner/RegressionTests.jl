@@ -92,8 +92,7 @@ macro b(id, args...)
     end
 end
 
-const CI = get(ENV, "CI", "false") != "false"
-function skim(report::IO, source, fix_auto)
+function skim(report::IO, source)
     include(source) # TODO: lint for benchmarks that are not gated by @b
     if AUTO_ID_COUNT[] != 0
         if fix_auto
