@@ -35,7 +35,8 @@ function runbenchmarks(;
         commands[i] = `$julia_exe --project=$(projects[i]) -e $script`
     end
 
-    revs = shuffle!(repeat([primary, comparison], 45))
+    lens = 45, 75, 120, 300
+    revs = shuffle!(repeat([primary, comparison], lens[1]))
     # TODO take a random shuffle that fails the first "plausibly different" test
     # so that things that are literally equal will never make it past the first round
     metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
@@ -48,9 +49,9 @@ function runbenchmarks(;
     print("waiting for preliminary results...")
     display_lock = ReentrantLock()
     plausibly_different = nothing
-    for i in 1:3
+    for i in 1:length(lens)
         serialize(filter_path, plausibly_different)
-        count = 0
+        num_completed = 0
         @sync for i in inds
             rev = revs[i]
             worker = take!(worker_pool)
@@ -68,11 +69,11 @@ function runbenchmarks(;
                 metadatas[i] = m
                 datas[i] = d
                 lock(display_lock) do
-                    count += 1
-                    if count == 1 && i == 1
+                    num_completed += 1
+                    if num_completed == 1 && i == 1
                         println("\r", rpad("$(sum(length, datas[i])) tracked results", 34))
                     end
-                    print("\r$count/$(length(inds))")
+                    print("\r$num_completed/$(length(inds))")
                     flush(stdout)
                 end
             end
@@ -85,11 +86,17 @@ function runbenchmarks(;
         sc = sum(count, plausibly_different)
         sc == 0 && break
         println(sc, "/", sum(length, plausibly_different), " tracked results are plausibly different. Running more trials for them")
+        old_len = length(revs)
+        append!(revs, shuffle!(repeat([primary, comparison], lens[i+1]-lens[i])))
+        inds = old_len+1:length(revs)
+        print("0/$(length(inds))")
+        resize!(metadatas, length(revs))
+        resize!(datas, length(revs))
     end
 
     # TODO throw on Inf or NaN
     # Note literal equality is fine because we use a stable sort and the order is random
-    return metadata, plausibly_different
+    return metadatas, plausibly_different
 end
 function runbenchmarks_pkg()
     runbenchmarks(project = dirname(Pkg.project().path))
