@@ -3,116 +3,97 @@ module TablemarksCI
 using Compat
 using Random
 using Profile
-using JuliaSyntax
 using Pkg, Markdown
+using Serialization
+using Base.Threads
 
-export @b_AUTO, @b
+export @track
 @compat public runbenchmarks
-
-include("juliasyntax.jl")
-include("b_auto.jl")
 
 function runbenchmarks(;
         project = dirname(pwd()), # run from test directory
         bench_project = joinpath(project, "bench"),
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
-        fix_auto = !CI[],
         primary = "dev",
         comparison = "main",
-        threads = min(8, Sys.CPU_THREADS),
+        workers = min(8, Sys.CPU_THREADS),
         )
 
+    commands = Vector{Cmd}(undef, workers)
+    projects = [tempname() for _ in 1:workers]
+    channels = [tempname() for _ in 1:workers]
+    # bench_projectfile = joinpath(bench_project, "Project.toml")
+    # bench_projectfile_exists = isfile(bench_projectfile)
+    julia_exe = joinpath(Sys.BINDIR, "julia")
+    rfile = repr(bench_file)
+    for i in 1:workers
+        mkdir(projects[i])
+        # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
+        cp(bench_project, projects[i], force=true)
+        script = "using TablemarksCI: _runbenchmarks3; _runbenchmarks3($rfile, $(repr(channels[i])))"
+        commands[i] = `$julia_exe --project=$(projects[i]) -e $script`
+    end
+    pkg_lock = ReentrantLock() # I'm not sure if Pkg can be used in multiple environments from multiple tasks at the same time
+    data_lock = ReentrantLock() # I know this is not thread safe
+    metadatas = Vector{Tuple{Symbol, Int, String}}[]
+    datas = Vector{Vector{Float64}}[]
 
-    projects = [tempname() for _ in 1:threads]
-    channels = [tempname() for _ in 1:threads]
-    input = tempname()
-    mkdir.(projects)
-    bench_projectfile = joinpath(bench_project, "Project.toml")
-    isfile(bench_projectfile) && cp.(Ref(bench_projectfile), projects)
+    revs = shuffle!(repeat([primary, comparison], 2))
+    worker_pool = Channel{Int}(workers)
+    put!.(Ref(worker_pool), 1:workers)
 
-    function setup(rev, i)
-        Pkg.activate(projects[i])
+    @sync for rev in revs
+        worker = take!(worker_pool)
+        println("A")
+        Pkg.activate(projects[worker], io=devnull)
+        println("B")
         if rev == "dev"
-            Pkg.develop(PackageSpec(path=project))
+            Pkg.develop(PackageSpec(path=project), io=devnull)
         else
-            Pkg.pin(PackageSpec(name="TablemarksCI", rev=rev))
+            Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
+        end
+        Pkg.instantiate(io=devnull)
+        println("C")
+        begin # @async begin
+            println("D")
+            println(commands[worker])
+            run(commands[worker], wait=true)
+
+            println("F")
+            println(channels[worker])
+            println(isfile(channels[worker]))
+            m, d = deserialize(channels[worker])
+            println("Pass")
+            push!(metadatas, m)
+            push!(datas, d)
+            # TODO: make this data transfer more efficient and/or give better errors
+            allequal(metadatas) || error("Metadata mismatch")
+            allequal(length.(d) for d in datas) || error("Data length mismatch")
+            println("F")
+            put!(worker_pool, worker)
         end
     end
 
-    setup(comparison, 1)
-    cmd = "using TablemarksCI: skim; skim($(repr(channels[i])), $(repr(file)))"
-    println(cmd)
-    run(`julia --project $(projects[1]) -e $cmd`)
-    cp(channels[1], input)
-    setup(primary, 1)
-    cmd = "using TablemarksCI: skim; skim($(repr(channels[i])), $(repr(file))$(fix_auto ? ", "*repr(input) : ""))"
-    println(cmd)
-    run(`julia --project $(projects[1]) -e $cmd`)
-
-
-    cp(project, dirs[1])
-
-    cd(dirs1) do
-        run(`julia --project -e $cmd`)
-    end
-    ids = reinterpret(UInt128, read(temp))
-    println.(repr.(ids))
+    return metadatas, datas
 end
 function runbenchmarks_pkg()
     runbenchmarks(project = dirname(Pkg.project().path))
 end
 
-const SKIM = Ref(false)
-const AUTO_ID_COUNT = Ref(0)
-const IDS = Set{UInt128}()
-const FILES = Set{Symbol}()
-function log_id(id)
-    id128 = UInt128(id)
-    if id128 in IDS
-        error("Duplicate id: $id")
-    end
-    push!(IDS, id128)
+const METADATA3 = Tuple{Symbol, Int, String}[]
+const DATA2 = Vector{Float64}[]
+macro track(expr)
+    push!(DATA2, Float64[])
+    i = lastindex(DATA2)
+    push!(METADATA3, (__source__.file, __source__.line, string(expr)))
+    :(push!(DATA2[$i], Float64($(esc(expr)))))
 end
-macro b(id, args...)
-    push!(FILES, __source__.file)
-    if id isa QuoteNode
-        id = id.value
-    end
-    if id isa Symbol && lowercase(string(id) )=== "auto"
-        # TODO Throw on non-skim and non-ci
-        AUTO_ID_COUNT[] += 1
-    elseif id isa Base.BitUnsigned64
-        log_id(id)
-    elseif id isa Expr && id.head === :macrocall && id.args[1] === Core.var"@uint128_str" && id.args[2] === nothing && id.args[3] isa String
-        log_id(Base.parse(UInt128, id.args[3]))
-    else
-        println(id)
-        println(typeof(id))
-        error("Invalid id: $id")
-    end
-end
-
-function skim(report::IO, source)
-    include(source) # TODO: lint for benchmarks that are not gated by @b
-    if AUTO_ID_COUNT[] != 0
-        if fix_auto
-            id_space = max(2(length(IDS) + AUTO_ID_COUNT[]), maximum(IDS))
-            T = id_space <= typemax(UInt32) ? UInt32 : id_space <= typemax(UInt64) ? UInt64 : UInt128
-            function id_source()
-                x = rand(T)
-                while UInt128(x) in IDS
-                    x = rand(T)
-                end
-                push!(IDS, UInt128(x))
-                repr(x)
-            end
-            transform_file2.(id_source, FILES)
-        else
-            error("`:auto` must be replaced with randomly generated ids")
-        end
-    end
-    write.(report, sort!(collect(IDS)))
-    flush(report)
+function _runbenchmarks3(file, destination)
+    include(file)
+    println("AAAA")
+    serialize(destination, (METADATA3, DATA2))
+    println(destination)
+    println(isfile(destination))
 end
 
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments

@@ -2,7 +2,7 @@
 
 julia_version = "1.10.0-rc1"
 manifest_format = "2.0"
-project_hash = "ce83d5aec75f7ab91e8e077b64d916c41919c877"
+project_hash = "f0ae856637f72da3f3d12358c4f22d74f1b87c33"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -13,6 +13,14 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.Chairmarks]]
+deps = ["Printf"]
+git-tree-sha1 = "4ca2cb6ed9196088273706f467dd9a702b913c07"
+repo-rev = "main"
+repo-url = "/Users/x/.julia/dev/Chairmarks"
+uuid = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
+version = "0.1.0"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
@@ -42,11 +50,6 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
-
-[[deps.JuliaSyntax]]
-git-tree-sha1 = "1a4857ab55396b2da745f07f76ce4e696207b740"
-uuid = "70703baa-626e-46a2-a12c-08ffd08c73b4"
-version = "0.4.7"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -132,7 +135,7 @@ uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 version = "1.0.3"
 
 [[deps.TablemarksCI]]
-deps = ["Compat", "JuliaSyntax", "Markdown", "Pkg", "Profile", "Random"]
+deps = ["Compat", "Markdown", "Pkg", "Profile", "Random", "Serialization"]
 path = "/Users/x/.julia/dev/TablemarksCI"
 uuid = "2cca1867-674a-4323-b559-fc77c0bbdb31"
 version = "0.0.0"

@@ -2,6 +2,7 @@ println("Hi!")
 println(pwd())
 import Pkg
 println(Pkg.status())
+using Chairmarks
 
 for n in [1, 10, 100]
     x = @be n rand
