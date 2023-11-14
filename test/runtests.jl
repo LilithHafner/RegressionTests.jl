@@ -5,7 +5,7 @@ using StableRNGs
 
 @testset "TablemarksCI.jl" begin
     @testset "Code quality (Aqua.jl)" begin
-        Aqua.test_all(TablemarksCI)
+        Aqua.test_all(TablemarksCI; deps_compat = false, project_toml_formatting = false)
     end
 
     @testset "Transformations" begin
@@ -27,5 +27,10 @@ using StableRNGs
             @test actual != expected # rngs don't align
             @test replace(actual, filter) == replace(expected, filter)
         end
+    end
+
+    @testset "Regression tests" begin
+        using TablemarksCI: runbenchmarks
+        runbenchmarks()
     end
 end

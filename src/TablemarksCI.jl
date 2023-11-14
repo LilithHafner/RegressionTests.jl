@@ -1,11 +1,107 @@
 module TablemarksCI
 
-export @b_AUTO
-
+using Compat
 using Random
+using Profile
 using JuliaSyntax
+using Pkg, Markdown
+
+export @b_AUTO, @b
+@compat public runbenchmarks
+
 include("juliasyntax.jl")
 include("b_auto.jl")
+
+function runbenchmarks(;
+        project = joinpath(dirname(pwd()), "bench"), # run from test directory
+        file = joinpath(project, "runbenchmarks.jl"),
+        fix_auto = !CI[],
+        )
+
+    temp = tempname()
+    cmd = "using TablemarksCI: skim; skim(open($(repr(temp)), \"w\"), $(repr(file)), $(repr(fix_auto)))"
+    cd(project) do
+        run(`julia --project -e $cmd`)
+    end
+    ids = reinterpret(UInt128, read(temp))
+    println.(repr.(ids))
+end
+const SKIM = Ref(false)
+const AUTO_ID_COUNT = Ref(0)
+const IDS = Set{UInt128}()
+const FILES = Set{Symbol}()
+function log_id(id)
+    id128 = UInt128(id)
+    if id128 in IDS
+        error("Duplicate id: $id")
+    end
+    push!(IDS, id128)
+end
+macro b(id, args...)
+    push!(FILES, __source__.file)
+    if id isa QuoteNode
+        id = id.value
+    end
+    if id isa Symbol && lowercase(string(id) )=== "auto"
+        # TODO Throw on non-skim and non-ci
+        AUTO_ID_COUNT[] += 1
+    elseif id isa Base.BitUnsigned64
+        log_id(id)
+    elseif id isa Expr && id.head === :macrocall && id.args[1] === Core.var"@uint128_str" && id.args[2] === nothing && id.args[3] isa String
+        log_id(Base.parse(UInt128, id.args[3]))
+    else
+        println(id)
+        println(typeof(id))
+        error("Invalid id: $id")
+    end
+end
+
+const CI = get(ENV, "CI", "false") != "false"
+function skim(report::IO, source, fix_auto)
+    include(source) # TODO: lint for benchmarks that are not gated by @b
+    if AUTO_ID_COUNT[] != 0
+        if fix_auto
+            id_space = max(2(length(IDS) + AUTO_ID_COUNT[]), maximum(IDS))
+            T = id_space <= typemax(UInt32) ? UInt32 : id_space <= typemax(UInt64) ? UInt64 : UInt128
+            function id_source()
+                x = rand(T)
+                while UInt128(x) in IDS
+                    x = rand(T)
+                end
+                push!(IDS, UInt128(x))
+                repr(x)
+            end
+            transform_file2.(id_source, FILES)
+        else
+            error("`:auto` must be replaced with randomly generated ids")
+        end
+    end
+    write.(report, sort!(collect(IDS)))
+    flush(report)
+end
+function runbenchmarks_pkg()
+    runbenchmarks(project = joinpath(dirname(Pkg.project().path), "bench"))
+end
+
+# TODO: make this weak dep and/or move it to a separate package that lives in default environments
+function __init__()
+    Pkg.REPLMode.SPECS["package"]["bench"] = Pkg.REPLMode.CommandSpec(
+        "bench", # Long name
+        nothing, # short name
+        runbenchmarks_pkg, # API
+        true, # should_splat
+        Pkg.REPLMode.ArgSpec(0 => 0, Pkg.REPLMode.parse_package), # Arguments
+        Dict{String, Pkg.REPLMode.OptionSpec}(), # Options
+        nothing, # Completions
+        "run regression tests for packages", # Description
+        # Help
+        md"""
+            bench
+
+        Run the benchmarks for package `pkg`. This is done by running the file
+        `bench/runbenchmarks.jl` in the package directory. The `startup.jl` file is
+        disabled during benchmarking unless julia is started with `--startup-file=yes`.""")
+end
 
 """
     differentiate(f, g)

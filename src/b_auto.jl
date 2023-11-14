@@ -16,7 +16,6 @@ function transformation(x::SyntaxNode, rng=Random.default_rng())
     kind(name) === K"MacroName" || return nothing
     name.val === Symbol("@b_AUTO") || return nothing
     args = x.data.raw.args
-    global XXX = x
     endpos = x.data.position + x.data.raw.span - 1
     prefix, insertion_point = if head(x).flags === 0x0000
         lst = last(args)
@@ -61,6 +60,38 @@ function transform_file(path::String; rng=Random.default_rng(), kw...)
         str = read(io, String)
         seekstart(io)
         trans = transformations(str; rng, filename=basename(path), kw...)
+        write_transformed(io, str, trans)
+    end
+end
+
+
+function transformation2(id_source, x::SyntaxNode)
+    kind(x) === K"macrocall" || return nothing
+    length(x.children) >= 2 || return nothing
+    name, arg1 = x.children[1:2]
+    kind(name) === K"MacroName" || return nothing
+    name.val === Symbol("@b") || return nothing
+    if kind(arg1) === K"quote"
+        length(arg1.children) == 1 || return nothing
+        arg1_child = only(arg1.children)
+        kind(arg1_child) === K"Identifier" || return nothing
+        lowercase(string(arg1_child.val)) === "auto" || return nothing
+    elseif kind(arg1) === K"Identifier"
+        lowercase(string(arg1.val)) === "auto" || return nothing
+    else
+        return nothing
+    end
+    arg1.data.position:Int(arg1.data.position + arg1.data.raw.span - 1) => id_source()
+end
+function transform_file2(id_source, path::Symbol)
+    open(string(path), read=true, write=true) do io
+        str = read(io, String)
+        trans = Vector{Pair{UnitRange{Int}, String}}()
+        for x in walktree(parseall(SyntaxNode, str))
+            t = transformation2(id_source, x)
+            t === nothing || push!(trans, t)
+        end
+        seekstart(io)
         write_transformed(io, str, trans)
     end
 end
