@@ -13,7 +13,7 @@ using Serialization
 export runbenchmarks
 
 # Callie
-export @track
+export @track, @group
 
 
 # Caller
@@ -22,6 +22,14 @@ export @track
 # TODO track load time
 # TODO track TTFX
 
+"""
+    runbenchmarks()
+
+When called in `test/runtests.jl` while `pwd()` points to `test`, this function runs
+the benchmarks in `bench/runbenchmarks.jl`.
+
+There are some keyword arguments, but they are not public.
+"""
 function runbenchmarks(;
         project = dirname(pwd()), # run from test directory
         bench_project = joinpath(project, "bench"),
@@ -43,7 +51,7 @@ function runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.METADATA3, RegressionTests.DATA2))"
+        script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
         commands[i] = `$julia_exe --project=$(projects[i]) --handle-signals=no -e $script`
     end
 
@@ -51,8 +59,9 @@ function runbenchmarks(;
     revs = shuffle!(repeat([primary, comparison], lens[1]))
     # TODO take a random shuffle that fails the first "plausibly different" test
     # so that things that are literally equal will never make it past the first round
-    metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
-    datas = Vector{Vector{Vector{Vector{Float64}}}}(undef, length(revs))
+    static_metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
+    runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
+    datas = Vector{Vector{Float64}}(undef, length(revs))
 
     function setup_env(i, worker)
         rev = revs[i]
@@ -68,8 +77,9 @@ function runbenchmarks(;
         run(commands[worker], devnull, out, err; wait=false)
     end
     function store_results(i, worker)
-        m, d = deserialize(channels[worker])
-        metadatas[i] = m
+        sm, rm, d = deserialize(channels[worker])
+        static_metadatas[i] = sm
+        runtime_metadatas[i] = rm
         datas[i] = d
     end
 
@@ -175,9 +185,10 @@ function runbenchmarks(;
 
     inds = eachindex(revs)
     print("waiting for preliminary results...")
-    plausibly_different = nothing
+    filter = nothing
+    original_runtime_metadata = nothing
     for i in 1:length(lens)
-        serialize(filter_path, plausibly_different)
+        serialize(filter_path, filter)
         num_completed = Ref(0)
         p = Pkg.project().path
         try
@@ -192,25 +203,85 @@ function runbenchmarks(;
         end
         println()
         # TODO: make these errors more descriptive and/or make the serialized data transfer more efficient
-        allequal(metadatas) || error("Metadata mismatch")
-        allequal(length.(d) for d in datas) || error("Data length mismatch")
-        allequal([length.(d) for d in data] for data in datas[inds]) || error("Data inner length mismatch")
-                                                        # trial, tracked, iteration, result index
-        plausibly_different = [[any(are_different(revs, [datas[i][j][k][l] for i in eachindex(revs, datas)]) for l in eachindex(datas[end][j][k])) for k in eachindex(datas[1][j])] for j in eachindex(datas[1])]
-        sc = sum(count, plausibly_different)
-        sc == 0 && break
-        println(sc, "/", sum(length, plausibly_different), " tracked results are plausibly different. Running more trials for them")
+        allequal(static_metadatas) || error("Static metadata mismatch")
+        allequal(runtime_metadatas) || error("Runtime metadata mismatch")
+        allequal(length.(datas)) || error("Data length mismatch")
+
+        i == 1 && (original_runtime_metadata = copy(runtime_metadatas[1]))
+
+        plausibly_different = [are_different(revs, [datas[i][j] for i in eachindex(revs, datas)]) for j in eachindex(datas[1])]
+
+        md = Int[]
+        old_filter = filter === nothing ? trues(Int((length(last(runtime_metadatas))+length(plausibly_different))/2)) : filter
+        data = reverse(plausibly_different)
+        group_stack = Tuple{Int, Int}[]
+        new_filter = BitVector()
+        skip_depth = 0
+        for m in original_runtime_metadata
+            if skip_depth > 0
+                if m < 0
+                    skip_depth += 1
+                elseif m == 0
+                    skip_depth -= 1
+                end
+            elseif m == 0
+                if isempty(group_stack)
+                    push!(md, 0) # Close the group
+                else
+                    md_size, new_filter_size = pop!(group_stack)
+                    resize!(md, md_size) # drop the @group metadata for the  group that is skipped
+                    resize!(new_filter, new_filter_size) # Drop a bunch of falses
+                    new_filter[end] = false # Correct the speculation to false
+                end
+            elseif m < 0
+                if pop!(old_filter)
+                    push!(new_filter, true) # Speculatively mark group as true
+                    push!(group_stack, (length(md), length(new_filter)))
+                    push!(md, m)
+                else # The group was skipped
+                    push!(new_filter, false)
+                    @assert skip_depth == 0
+                    skip_depth = 1
+                end
+            else @assert m > 0
+                if pop!(old_filter)
+                    if pop!(data)
+                        push!(new_filter, true)
+                        push!(md, m)
+                        empty!(group_stack) # All these groups were correctly marked true
+                    else
+                        push!(new_filter, false)
+                    end
+                else
+                    push!(new_filter, false)
+                end
+            end
+        end
+        @assert isempty(old_filter)
+        append!(new_filter, old_filter) # Append the remaining falses
+        reverse!(new_filter) # Reverse so that we can pop from the end in subprocesses
+        filter = new_filter
+
+        runtime_metadatas .= Ref(md)
+        for i in eachindex(datas)
+            datas[i] = datas[i][plausibly_different] # Drop the data that we know is equal
+        end
+
+        sc = count(plausibly_different)
+        (sc == 0 || i == lastindex(lens)) && break
+        println(sc, "/", length(plausibly_different), " tracked results are plausibly different. Running more trials for them")
         old_len = length(revs)
         append!(revs, shuffle!(repeat([primary, comparison], lens[i+1]-lens[i])))
         inds = old_len+1:length(revs)
         print("0/$(length(inds))")
-        resize!(metadatas, length(revs))
+        resize!(static_metadatas, length(revs))
+        resize!(runtime_metadatas, length(revs))
         resize!(datas, length(revs))
     end
 
     # TODO throw on Inf or NaN
     # Note literal equality is fine because we use a stable sort and the order is random
-    return metadatas, plausibly_different
+    return only(unique(static_metadatas)), original_runtime_metadata, filter
 end
 function runbenchmarks_pkg()
     runbenchmarks(project = dirname(Pkg.project().path))
@@ -219,6 +290,7 @@ end
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
 # but otoh, this mono-package has a 2-second precompile time and a 2ms load time and the versions
 # of the two pacakges are tightly coupled so maybe not worth it?
+# TODO: integrate with Revise (Revise triggers on ]test, but not on ]bench)
 function __init__()
     Pkg.REPLMode.SPECS["package"]["bench"] = Pkg.REPLMode.CommandSpec(
         "bench", # Long name
@@ -294,6 +366,7 @@ const THRESHOLDS = Dict(45 => .005, 75 => .007, 120 => .008, 300 => .014)
 function are_different(tags, data)
     length(tags) == length(data) || error("Length mismatch")
     n = Int(length(tags)/2)
+    n in keys(THRESHOLDS) || (@warn("DEBUG MODE"); rand(Bool))
     threshold = THRESHOLDS[n]
     ut = unique(tags)
     length(ut) == 2 || error("Expected two tags")
@@ -314,17 +387,38 @@ end
 
 # Callie
 
-const FILTER = Ref{Union{Nothing, Vector{Vector{Bool}}}}(nothing)
-const METADATA3 = Tuple{Symbol, Int, String}[]
-const DATA2 = Vector{Vector{Float64}}[]
+const FILTER = Ref{Union{Nothing, BitVector}}(nothing)
+const STATIC_METADATA = Tuple{Symbol, Int, String}[]
+const GROUP_ID = Ref(0)
+const RUNTIME_METADATA = Int[]
+const DATA = Float64[]
+is_active() = FILTER[] === nothing || pop!(FILTER[])
+macro group(expr)
+    i = (GROUP_ID[] -= 1)
+    quote
+        let
+            if is_active()
+                push!(RUNTIME_METADATA, $i)
+                $(esc(expr))
+                push!(RUNTIME_METADATA, 0)
+                nothing
+            end
+        end
+    end
+end
 macro track(expr)
-    push!(DATA2, Vector{Float64}[])
-    i = lastindex(DATA2)
-    push!(METADATA3, (__source__.file, __source__.line, string(expr)))
-    if FILTER[] === nothing || FILTER[][i][length(DATA2[i])+1]
-        :(push!(DATA2[$i], vec(collect(Float64.($(esc(expr)))))); nothing)
-    else
-        :(push!(DATA2[$i], Float64[]); nothing)
+    # string(expr) causes O(n^2) macro expansion time for deeply nested `@task`s
+    push!(STATIC_METADATA, (__source__.file, __source__.line, string(expr)))
+    i = lastindex(STATIC_METADATA)
+    quote
+        let
+            if is_active()
+                x::Float64 = Float64($(esc(expr)))
+                push!(RUNTIME_METADATA, $i)
+                push!(DATA, x)
+                nothing
+            end
+        end
     end
 end
 
