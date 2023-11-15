@@ -1,12 +1,22 @@
 module TablemarksCI
 
-using Compat
+# Caller
 using Random
 using Pkg, Markdown
 using Serialization
 
+# Callie
+using Serialization
+
+
+# Caller
+export runbenchmarks
+
+# Callie
 export @track
-@compat public runbenchmarks
+
+
+# Caller
 
 # TODO track precompilation time
 # TODO track load time
@@ -206,20 +216,6 @@ function runbenchmarks_pkg()
     runbenchmarks(project = dirname(Pkg.project().path))
 end
 
-const FILTER = Ref{Union{Nothing, Vector{Vector{Bool}}}}(nothing)
-const METADATA3 = Tuple{Symbol, Int, String}[]
-const DATA2 = Vector{Vector{Float64}}[]
-macro track(expr)
-    push!(DATA2, Vector{Float64}[])
-    i = lastindex(DATA2)
-    push!(METADATA3, (__source__.file, __source__.line, string(expr)))
-    if FILTER[] === nothing || FILTER[][i][length(DATA2[i])+1]
-        :(push!(DATA2[$i], vec(collect(Float64.($(esc(expr)))))); nothing)
-    else
-        :(push!(DATA2[$i], Float64[]); nothing)
-    end
-end
-
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
 function __init__()
     Pkg.REPLMode.SPECS["package"]["bench"] = Pkg.REPLMode.CommandSpec(
@@ -311,6 +307,23 @@ function are_different(tags, data)
     @assert sum === n
     err < (threshold*n^3)*4+n && return false
     return true
+end
+
+
+# Callie
+
+const FILTER = Ref{Union{Nothing, Vector{Vector{Bool}}}}(nothing)
+const METADATA3 = Tuple{Symbol, Int, String}[]
+const DATA2 = Vector{Vector{Float64}}[]
+macro track(expr)
+    push!(DATA2, Vector{Float64}[])
+    i = lastindex(DATA2)
+    push!(METADATA3, (__source__.file, __source__.line, string(expr)))
+    if FILTER[] === nothing || FILTER[][i][length(DATA2[i])+1]
+        :(push!(DATA2[$i], vec(collect(Float64.($(esc(expr)))))); nothing)
+    else
+        :(push!(DATA2[$i], Float64[]); nothing)
+    end
 end
 
 end

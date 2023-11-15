@@ -2,7 +2,7 @@ using TablemarksCI
 using Chairmarks
 
 # 463.5 => 306.8 => 52.3
-for n in 1:200
+for n in 1:50
     @track begin
         res = @be n rand seconds=.01
         [minimum(res).time, Chairmarks.median(res).time, Chairmarks.mean(res).time]
