@@ -181,9 +181,9 @@ function runbenchmarks(;
         num_completed = Ref(0)
         p = Pkg.project().path
         try
-            do_work(inds) do i
+            do_work(inds) do j
                 num_completed[] += 1
-                num_completed[] == 1 && println(rpad("\r$(sum(length, datas[i])) tracked results", 34))
+                num_completed[] == 1 && i == 1 && println(rpad("\r$(sum(length, datas[j])) tracked results", 34))
                 print("\r$(num_completed[]) / $(length(inds))")
                 flush(stdout)
             end && return nothing # do_work failed
