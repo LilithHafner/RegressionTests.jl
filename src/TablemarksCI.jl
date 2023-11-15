@@ -56,8 +56,8 @@ function runbenchmarks(;
         end
         Pkg.instantiate(io=devnull)
     end
-    function spawn_worker(worker, inp, out, err)
-        run(commands[worker], inp, out, err; wait=false)
+    function spawn_worker(worker, out, err)
+        run(commands[worker], devnull, out, err; wait=false)
     end
     function store_results(i, worker)
         m, d = deserialize(channels[worker])
@@ -88,21 +88,10 @@ function runbenchmarks(;
         for i in 1:workers; put!(worker_pool, i); end
         try
             for i in inds
-                # my_condition = Condition()
-                # println("A")
-                # println("Before")
-                while !isready(worker_pool)
-                    # Handle ^C here, in this try/catch block. Not in another task.
-                    disable_sigint() do
-                        sleep(.01)
-                    end
-                end
-                # println("After")
-                # wait(my_condition::Condition)
 
                 worker = take!(worker_pool) # Wait for available worker
-                # println("D")
-                if isassigned(processes, worker)
+
+                if isassigned(processes, worker) # Handle the data or error it produced (if any)
                     p = processes[worker]
                     @assert process_exited(p)
                     if !success(p)
@@ -126,9 +115,9 @@ function runbenchmarks(;
                             # give up on waiting
                             nice_kill(1)
                             wait(processes[1]) # Don't want it's output to mangle the following error
-                            # ERROR: Worker 7 running trial 9 failed. Worker 1 did not
-                            # quickly reproduce the failure, reporting worker 7's logs below
-                            # ==============================================================
+                            # ERROR: Worker 7 running trial 9 failed.
+                            # Worker 1 did not quickly reproduce the failure, reporting worker 7's logs below
+                            # ===============================================================================
                             printstyled("ERROR:", color=:red)
                             println(" Worker $worker running trial $i failed.")
                             println("Worker 1 did not quickly reproduce the failure, reporting worker $worker's logs below")
@@ -141,14 +130,15 @@ function runbenchmarks(;
                     end
                     store_results(i, worker) # Fast
                 end
+
                 setup_env(i, worker) # Can't run in parallel
-                io = if worker == 1
-                    (stdin, stdout, stderr)
+                out_err = if worker == 1 # Pipe only the first worker to stdout and stderr so that debug is legible
+                    (stdout, stderr)
                 else
                     x = IOBuffer()
-                    (devnull, x, x)
+                    (x, x)
                 end
-                processes[worker] = spawn_worker(worker, io...) # Keep a handle on the underlying process
+                processes[worker] = spawn_worker(worker, out_err...) # Keep a handle on the underlying process
                 @spawn begin # This throwaway process will clean itself up and alert the centralized notification system once the underlying process exits
                     wait(processes[worker])
                     put!(worker_pool, worker)
@@ -156,7 +146,6 @@ function runbenchmarks(;
             end
         catch x
             if x isa InterruptException
-                @info "Benchmarking Interrupted"
                 nice_kill.(1:workers)
                 _wait(workers-1) # At most one worker was not in the pool at the time of the interrupt
                 return true # failure
