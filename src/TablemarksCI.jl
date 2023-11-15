@@ -183,6 +183,7 @@ function runbenchmarks(;
             Pkg.activate(p, io=devnull) # More for the return than for errors.
         end
         println()
+        # TODO: make these errors more descriptive and/or make the serialized data transfer more efficient
         allequal(metadatas) || error("Metadata mismatch")
         allequal(length.(d) for d in datas) || error("Data length mismatch")
         allequal([length.(d) for d in data] for data in datas[inds]) || error("Data inner length mismatch")
