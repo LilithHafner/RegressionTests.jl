@@ -36,7 +36,7 @@ function runbenchmarks(;
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
         script = "let; using TablemarksCI, Serialization; TablemarksCI.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using TablemarksCI, Serialization; serialize($(repr(channels[i])), (TablemarksCI.METADATA3, TablemarksCI.DATA2))"
-        commands[i] = `$julia_exe --project=$(projects[i]) -e $script`
+        commands[i] = `$julia_exe --project=$(projects[i]) --handle-signals=no -e $script`
     end
 
     lens = 45, 75, 120, 300
@@ -46,42 +46,141 @@ function runbenchmarks(;
     metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
     datas = Vector{Vector{Vector{Vector{Float64}}}}(undef, length(revs))
 
-    worker_pool = Channel{Int}(workers)
-    put!.(Ref(worker_pool), 1:workers)
+    function setup_env(i, worker)
+        rev = revs[i]
+        Pkg.activate(projects[worker], io=devnull)
+        if rev == "dev"
+            Pkg.develop(PackageSpec(path=project), io=devnull)
+        else
+            Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
+        end
+        Pkg.instantiate(io=devnull)
+    end
+    function spawn_worker(worker, inp, out, err)
+        run(commands[worker], inp, out, err; wait=false)
+    end
+    function store_results(i, worker)
+        m, d = deserialize(channels[worker])
+        metadatas[i] = m
+        datas[i] = d
+    end
+
+    # What's actually going on /\
+    # Process management \/
+
+    function do_work(log, inds)
+        start_time = time()
+        processes = Vector{Union{Nothing, Base.Process}}(undef, workers)
+        function nice_kill(worker)
+            isassigned(processes, worker) || return
+            p = processes[worker]
+            # kill(processes[worker], Base.SIGKILL)
+            kill(processes[worker], Base.SIGINT)
+            @spawn begin sleep(.1); kill(p, Base.SIGTERM) end
+            @spawn begin sleep(.2); kill(p, Base.SIGKILL) end
+        end
+        function _wait(n)
+            for _ in 1:n
+                take!(worker_pool)
+            end
+        end
+        worker_pool = Channel{Int}(workers)
+        for i in 1:workers; put!(worker_pool, i); end
+        try
+            for i in inds
+                # my_condition = Condition()
+                # println("A")
+                # println("Before")
+                while !isready(worker_pool)
+                    # Handle ^C here, in this try/catch block. Not in another task.
+                    disable_sigint() do
+                        sleep(.01)
+                    end
+                end
+                # println("After")
+                # wait(my_condition::Condition)
+
+                worker = take!(worker_pool) # Wait for available worker
+                # println("D")
+                if isassigned(processes, worker)
+                    p = processes[worker]
+                    @assert process_exited(p)
+                    if !success(p)
+                        # Error recovery path #1 entrypoint: error in benchmarking code
+                        failure_time = time()
+                        for w in 2:workers # Start to kill all other workers
+                            w == worker || nice_kill(w)
+                        end
+
+                        wait_time = clamp(failure_time-start_time, .5, 5)
+                        c = Condition()
+                        @spawn begin sleep(wait_time); notify(c) end
+                        @spawn begin wait(processes[1]); notify(c) end
+                        wait(c)
+
+                        if process_exited(processes[1]) && !success(processes[1])
+                            # Yay! we got a failure in the process that is already
+                            # piped into stdout and stderr
+                            # 1 and worker are dead and all others have been `nice_kill`ed
+                        else
+                            # give up on waiting
+                            nice_kill(1)
+                            wait(processes[1]) # Don't want it's output to mangle the following error
+                            # ERROR: Worker 7 running trial 9 failed. Worker 1 did not
+                            # quickly reproduce the failure, reporting worker 7's logs below
+                            # ==============================================================
+                            printstyled("ERROR:", color=:red)
+                            println(" Worker $worker running trial $i failed.")
+                            println("Worker 1 did not quickly reproduce the failure, reporting worker $worker's logs below")
+                            println("===============================================================================")
+                            @assert p.out === p.err
+                            print(read(p.err, String))
+                        end
+                        _wait(workers-1) # `worker` is already popped from the worker pool
+                        return true # failure
+                    end
+                    store_results(i, worker) # Fast
+                end
+                setup_env(i, worker) # Can't run in parallel
+                io = if worker == 1
+                    (stdin, stdout, stderr)
+                else
+                    x = IOBuffer()
+                    (devnull, x, x)
+                end
+                processes[worker] = spawn_worker(worker, io...) # Keep a handle on the underlying process
+                @spawn begin # This throwaway process will clean itself up and alert the centralized notification system once the underlying process exits
+                    wait(processes[worker])
+                    put!(worker_pool, worker)
+                end
+            end
+        catch x
+            if x isa InterruptException
+                @info "Benchmarking Interrupted"
+                nice_kill.(1:workers)
+                _wait(workers-1) # At most one worker was not in the pool at the time of the interrupt
+                return true # failure
+            end
+            rethrow() # Unexpected error (probably TablemarksCI.jl's fault)
+        end
+        false # success
+    end
+
+    # Process management /\
+    # What's actually going on \/
 
     inds = eachindex(revs)
     print("waiting for preliminary results...")
-    display_lock = ReentrantLock()
     plausibly_different = nothing
     for i in 1:length(lens)
         serialize(filter_path, plausibly_different)
-        num_completed = 0
-        @sync for i in inds
-            rev = revs[i]
-            worker = take!(worker_pool)
-            Pkg.activate(projects[worker], io=devnull)
-            if rev == "dev"
-                Pkg.develop(PackageSpec(path=project), io=devnull)
-            else
-                Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
-            end
-            Pkg.instantiate(io=devnull)
-            @async begin
-                run(commands[worker], wait=true)
-                m, d = deserialize(channels[worker])
-                put!(worker_pool, worker)
-                metadatas[i] = m
-                datas[i] = d
-                lock(display_lock) do
-                    num_completed += 1
-                    if num_completed == 1 && i == 1
-                        println("\r", rpad("$(sum(length, datas[i])) tracked results", 34))
-                    end
-                    print("\r$num_completed/$(length(inds))")
-                    flush(stdout)
-                end
-            end
-        end
+        num_completed = Ref(0)
+        do_work(inds) do i
+            num_completed[] += 1
+            num_completed[] == 1 && println(rpad("\r$(sum(length, datas[i])) tracked result", 34))
+            print("\r$(num_completed[]) / $(length(inds))")
+            flush(stdout)
+        end && return nothing # do_work failed
         println()
         allequal(metadatas) || error("Metadata mismatch")
         allequal(length.(d) for d in datas) || error("Data length mismatch")
