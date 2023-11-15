@@ -217,6 +217,8 @@ function runbenchmarks_pkg()
 end
 
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
+# but otoh, this mono-package has a 2-second precompile time and a 2ms load time and the versions
+# of the two pacakges are tightly coupled so maybe not worth it?
 function __init__()
     Pkg.REPLMode.SPECS["package"]["bench"] = Pkg.REPLMode.CommandSpec(
         "bench", # Long name
