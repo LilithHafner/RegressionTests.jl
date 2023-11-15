@@ -1,4 +1,4 @@
-module TablemarksCI
+module RegressionTests
 
 # Caller
 using Random
@@ -43,7 +43,7 @@ function runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        script = "let; using TablemarksCI, Serialization; TablemarksCI.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using TablemarksCI, Serialization; serialize($(repr(channels[i])), (TablemarksCI.METADATA3, TablemarksCI.DATA2))"
+        script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.METADATA3, RegressionTests.DATA2))"
         commands[i] = `$julia_exe --project=$(projects[i]) --handle-signals=no -e $script`
     end
 
@@ -165,7 +165,7 @@ function runbenchmarks(;
                 # _wait(workers-1) # Many workers could have already been waited for.
                 return true # failure
             end
-            rethrow() # Unexpected error (probably TablemarksCI.jl's fault)
+            rethrow() # Unexpected error (probably RegressionTests.jl's fault)
         end
         false # success
     end

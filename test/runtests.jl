@@ -1,14 +1,14 @@
-using TablemarksCI
+using RegressionTests
 using Test
 using Aqua
 
-@testset "TablemarksCI.jl" begin
+@testset "RegressionTests.jl" begin
     @testset "Code quality (Aqua.jl)" begin
-        Aqua.test_all(TablemarksCI)
+        Aqua.test_all(RegressionTests)
     end
 
     @testset "Regression tests" begin
-        using TablemarksCI: runbenchmarks
+        using RegressionTests
         runbenchmarks()
     end
 end

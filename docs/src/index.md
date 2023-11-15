@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = TablemarksCI
+CurrentModule = RegressionTests
 ```
 
-# TablemarksCI
+# RegressionTests
 
-Documentation for [TablemarksCI](https://github.com/LilithHafner/TablemarksCI.jl).
+Documentation for [RegressionTests](https://github.com/LilithHafner/RegressionTests.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [TablemarksCI]
+Modules = [RegressionTests]
 ```

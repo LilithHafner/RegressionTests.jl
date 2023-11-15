@@ -1,4 +1,4 @@
-using TablemarksCI
+using RegressionTests
 using Chairmarks
 
 # 463.5 => 306.8 => 52.3

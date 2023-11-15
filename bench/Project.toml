@@ -1,4 +1,3 @@
 [deps]
 Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
-Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-TablemarksCI = "2cca1867-674a-4323-b559-fc77c0bbdb31"
+RegressionTests = "2cca1867-674a-4323-b559-fc77c0bbdb31"
