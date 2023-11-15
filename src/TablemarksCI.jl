@@ -71,6 +71,7 @@ function runbenchmarks(;
     function do_work(log, inds)
         start_time = time()
         processes = Vector{Union{Nothing, Base.Process}}(undef, workers)
+        work = Vector{Int}(undef, workers) # Which trial each worker is working on
         function nice_kill(worker)
             isassigned(processes, worker) || return
             p = processes[worker]
@@ -87,7 +88,7 @@ function runbenchmarks(;
         worker_pool = Channel{Int}(workers)
         for i in 1:workers; put!(worker_pool, i); end
         try
-            for i in inds
+            for i in vcat(inds, fill(nothing, workers)) # Go through the loop an extra workers times to store the final results
 
                 worker = take!(worker_pool) # Wait for available worker
 
@@ -119,18 +120,24 @@ function runbenchmarks(;
                             # Worker 1 did not quickly reproduce the failure, reporting worker 7's logs below
                             # ===============================================================================
                             printstyled("ERROR:", color=:red)
-                            println(" Worker $worker running trial $i failed.")
+                            println(" Worker $worker running trial $(work[worker]) failed.")
                             println("Worker 1 did not quickly reproduce the failure, reporting worker $worker's logs below")
                             println("===============================================================================")
                             @assert p.out === p.err
                             print(read(p.err, String))
                         end
-                        _wait(workers-1) # `worker` is already popped from the worker pool
+                        # _wait(workers-1) # `worker` is already popped from the worker pool
                         return true # failure
                     end
-                    store_results(i, worker) # Fast
+
+                    store_results(work[worker], worker) # Fast
+
+                    log(work[worker]) # Callback for progress reporting
                 end
 
+                i === nothing && continue # No more work to do
+
+                work[worker] = i # Record which trial this worker is working on
                 setup_env(i, worker) # Can't run in parallel
                 out_err = if worker == 1 # Pipe only the first worker to stdout and stderr so that debug is legible
                     (stdout, stderr)
@@ -147,7 +154,7 @@ function runbenchmarks(;
         catch x
             if x isa InterruptException
                 nice_kill.(1:workers)
-                _wait(workers-1) # At most one worker was not in the pool at the time of the interrupt
+                # _wait(workers-1) # Many workers could have already been waited for.
                 return true # failure
             end
             rethrow() # Unexpected error (probably TablemarksCI.jl's fault)
@@ -166,7 +173,7 @@ function runbenchmarks(;
         num_completed = Ref(0)
         do_work(inds) do i
             num_completed[] += 1
-            num_completed[] == 1 && println(rpad("\r$(sum(length, datas[i])) tracked result", 34))
+            num_completed[] == 1 && println(rpad("\r$(sum(length, datas[i])) tracked results", 34))
             print("\r$(num_completed[]) / $(length(inds))")
             flush(stdout)
         end && return nothing # do_work failed
