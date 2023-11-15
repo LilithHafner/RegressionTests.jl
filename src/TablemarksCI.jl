@@ -2,10 +2,8 @@ module TablemarksCI
 
 using Compat
 using Random
-using Profile
 using Pkg, Markdown
 using Serialization
-using Base.Threads
 
 export @track
 @compat public runbenchmarks
@@ -77,8 +75,8 @@ function runbenchmarks(;
             p = processes[worker]
             # kill(processes[worker], Base.SIGKILL)
             kill(processes[worker], Base.SIGINT)
-            @spawn begin sleep(.1); kill(p, Base.SIGTERM) end
-            @spawn begin sleep(.2); kill(p, Base.SIGKILL) end
+            @async begin sleep(.1); kill(p, Base.SIGTERM) end
+            @async begin sleep(.2); kill(p, Base.SIGKILL) end
         end
         function _wait(n)
             for _ in 1:n
@@ -104,8 +102,8 @@ function runbenchmarks(;
 
                         wait_time = clamp(failure_time-start_time, .5, 5)
                         c = Condition()
-                        @spawn begin sleep(wait_time); notify(c) end
-                        @spawn begin wait(processes[1]); notify(c) end
+                        @async begin sleep(wait_time); notify(c) end
+                        @async begin wait(processes[1]); notify(c) end
                         wait(c)
 
                         if process_exited(processes[1]) && !success(processes[1])
@@ -146,7 +144,7 @@ function runbenchmarks(;
                     (x, x)
                 end
                 processes[worker] = spawn_worker(worker, out_err...) # Keep a handle on the underlying process
-                @spawn begin # This throwaway process will clean itself up and alert the centralized notification system once the underlying process exits
+                @async begin # This throwaway process will clean itself up and alert the centralized notification system once the underlying process exits
                     wait(processes[worker])
                     put!(worker_pool, worker)
                 end
@@ -302,7 +300,7 @@ function are_different(tags, data)
     ut = unique(tags)
     length(ut) == 2 || error("Expected two tags")
     count(==(ut[1]), tags) == count(==(ut[2]), tags) == n || error("Expected equal counts")
-    perm = sortperm(data)
+    perm = sortperm(data) # A sorting dominated workload ?!?!?
     sum = 0
     err = 0
     for i in eachindex(data)
