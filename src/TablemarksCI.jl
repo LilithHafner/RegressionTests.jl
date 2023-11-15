@@ -171,12 +171,17 @@ function runbenchmarks(;
     for i in 1:length(lens)
         serialize(filter_path, plausibly_different)
         num_completed = Ref(0)
-        do_work(inds) do i
-            num_completed[] += 1
-            num_completed[] == 1 && println(rpad("\r$(sum(length, datas[i])) tracked results", 34))
-            print("\r$(num_completed[]) / $(length(inds))")
-            flush(stdout)
-        end && return nothing # do_work failed
+        p = Pkg.project().path
+        try
+            do_work(inds) do i
+                num_completed[] += 1
+                num_completed[] == 1 && println(rpad("\r$(sum(length, datas[i])) tracked results", 34))
+                print("\r$(num_completed[]) / $(length(inds))")
+                flush(stdout)
+            end && return nothing # do_work failed
+        finally
+            Pkg.activate(p, io=devnull) # More for the return than for errors.
+        end
         println()
         allequal(metadatas) || error("Metadata mismatch")
         allequal(length.(d) for d in datas) || error("Data length mismatch")
