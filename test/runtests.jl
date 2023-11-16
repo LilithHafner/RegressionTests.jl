@@ -24,11 +24,12 @@ using Pkg
                 old_src = read(src_file, String)
                 new_src = replace(old_src, "my_sum(x) = sum(x)" => "my_sum(x) = sum(Float64.(x))")
                 write(src_file, new_src)
-                runbenchmarks(project = ".")
-                # run(`git add $src_file`)
-                # run(`git commit -m "Introduce regression"`)
-                # runbenchmarks(project = ".")
+                @test !isempty(runbenchmarks(project = ".")) # Fail
+                run(`git add $src_file`)
+                run(`git commit -m "Introduce regression"`)
+                @test isempty(runbenchmarks(project = ".")) # Pass
                 # TODO: handle this case well
+                # TODO: track the runtime of these runbenchmark calls... but we can't use RegressionTests.jl because that would be too slow.
             finally
                 Pkg.activate(package)
                 rm(joinpath("bench", "Project.toml"), force=true)
