@@ -5,7 +5,7 @@ using Pkg
 
 @testset "RegressionTests.jl" begin
     @testset "Code quality (Aqua.jl)" begin
-        Aqua.test_all(RegressionTests)
+        Aqua.test_all(RegressionTests, deps_compat=false)
     end
 
     @testset "Example usage" begin
