@@ -9,5 +9,9 @@ for len in [1, 10, 100]
         @track @elapsed my_sum(x)
         @track @elapsed for _ in 1:100 my_sum(x) end
         @track @elapsed for _ in 1:100 my_sum(x) end
+
+        @track @elapsed my_prod(x)
+        @track @elapsed for _ in 1:100 my_prod(x) end
+        @track @elapsed for _ in 1:100 my_prod(x) end
     end
 end
