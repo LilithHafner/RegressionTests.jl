@@ -281,10 +281,55 @@ function runbenchmarks(;
 
     # TODO throw on Inf or NaN
     # Note literal equality is fine because we use a stable sort and the order is random
-    return only(unique(static_metadatas)), original_runtime_metadata, filter
+
+    # Make regressions
+    occurrences = zeros(Int, length(static_metadatas))
+    for m in original_runtime_metadata
+        m > 0 && (occurrences[m] += 1)
+    end
+    counts = zeros(Int, length(static_metadatas))
+    changes = Vector{Change}(undef, length(datas[1]))
+    changes_i = 0
+    skip = 0
+    for m in original_runtime_metadata
+        m > 0 && (counts[m] += 1)
+        if skip > 0
+            if m < 0
+                skip += 1
+            elseif m == 0
+                skip -= 1
+            end
+        elseif m < 0
+            pop!(filter) || (skip = 1)
+        elseif m > 0
+            if pop!(filter)
+                # A change!
+                changes_i += 1
+                changes[changes_i] = Change(
+                    first(static_metadatas)[m]...,
+                    counts[m],
+                    occurrences[m],
+                    [datas[i][changes_i] for i in eachindex(datas) if revs[i] == primary],
+                    [datas[i][changes_i] for i in eachindex(datas) if revs[i] == comparison],
+                )
+            end
+        end
+    end
+
+    return changes
 end
 function runbenchmarks_pkg()
     runbenchmarks(project = dirname(Pkg.project().path))
+end
+
+struct Change
+    file::Symbol
+    line::Int
+    expr::String
+    occurrence::Int
+    occurrences::Int
+    primary_data::Vector{Float64}
+    comparison_data::Vector{Float64}
 end
 
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
@@ -362,11 +407,12 @@ function differentiate(f, g)
     return true
 end
 
+const WARNED = Ref(false)
 const THRESHOLDS = Dict(45 => .005, 75 => .007, 120 => .008, 300 => .014)
 function are_different(tags, data)
     length(tags) == length(data) || error("Length mismatch")
     n = Int(length(tags)/2)
-    n in keys(THRESHOLDS) || (@warn("DEBUG MODE"); rand(Bool))
+    n in keys(THRESHOLDS) || ((WARNED[] || @warn("DEBUG MODE")); WARNED[] = true; return rand(Bool))
     threshold = THRESHOLDS[n]
     ut = unique(tags)
     length(ut) == 2 || error("Expected two tags")
