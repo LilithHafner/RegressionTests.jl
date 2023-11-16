@@ -332,6 +332,85 @@ struct Change
     comparison_data::Vector{Float64}
 end
 
+function postprocess_expr_string(expr::String)
+    expr = replace(expr, r"\n\s*#= .*:\d+ =#\s*\n" => "\n")
+    expr = replace(expr, r"\s*#= .*:\d+ =#\s*" => "")
+    if '\n' in expr
+        min_indent = minimum(length(match(r"^\s*", line).match) for line in Iterators.drop(eachsplit(expr, r"\n"), 1), init=0)
+        expr = replace(expr, "\n" * ' '^(min_indent) => "\n")
+    end
+    expr
+end
+function hist(io::IO, primary::Vector{Float64}, comparison::Vector{Float64})
+    @nospecialize
+    data = vcat(primary, comparison)
+    f = any(x < 0 for x in data) ? identity : log # -0.0 is okay
+    sample = sort!([f(x) for x in data if !isinf(x) && !isnan(x) && (f === identity || !iszero(x))])
+    ln = length(sample)-1 # 600
+    lo0, hi0 = sample[round(Int, 1+ln*.1)], sample[round(Int, 1+ln*.9)]
+    lo = lo0 - (hi0-lo0) * 0.2 / 0.8
+    hi = hi0 + (hi0-lo0) * 0.2 / 0.8
+    if f === identity # Crossing e is not as significant
+        sign(lo) != sign(lo0) && (lo = 0.0)
+        sign(hi) != sign(hi0) && (hi = 0.0)
+    end
+
+    bins = 60
+
+    primary_counts = zeros(Int, bins+6)
+    comparison_counts = zeros(Int, bins+6)
+    for (data, counts) in ((primary, primary_counts), (comparison, comparison_counts))
+        for x in data
+            i = if x == -Inf
+                1
+            elseif f === log && iszero(x)
+                2
+            elseif f(x) < lo
+                3
+            elseif f(x) > hi
+                bins+4
+            elseif x == Inf
+                bins+5
+            elseif isnan(x)
+                bins+6
+            else
+                4 + min(bins-1, floor(Int, (f(x)-lo) / (hi-lo) * (bins)))
+            end
+            counts[i] += 1
+        end
+    end
+    max_counts = maximum(maximum, (primary_counts, comparison_counts))
+    for (title, counts) in zip(("primary", "comparison"), (primary_counts, comparison_counts))
+        counts .= ceil.(Int, counts ./ max_counts .* 14)
+        j = 0
+        for (i, c) in enumerate(counts)
+            print(io, c > 7 ? '▁'+(c-8) : j < length(title) ? title[j += 1] : ' ')
+            3 < i < bins+3 || print(io, j < length(title) ? title[j += 1] : ' ')
+        end
+        println(io)
+        for (i, c) in enumerate(counts)
+            print(io, '▁'+min(7, c))
+            3 < i < bins+3 || print(io, ' ')
+        end
+        println(io)
+        # join(io, counts[1:4], ' ')
+        # join(io, counts[5:end-3])
+        # join(io, counts[end-3:end], ' ')
+        # println(io)
+    end
+    lo2, hi2 = f === identity ? (lo, hi) : (exp(lo), exp(hi))
+    lo_str = Base.Ryu.writeshortest(lo2, false, false, true, -1, UInt8('e'), false, UInt8('.'), false, true)
+    hi_str = Base.Ryu.writeshortest(hi2, false, false, true, -1, UInt8('e'), false, UInt8('.'), false, true)
+    println(io, "∞ 0 < └", lo_str, lpad(hi_str, bins-length(lo_str)-2), "┘ < ∞ N")
+end
+function Base.show(io::IO, c::Change) # TODO: check the impact on load time
+    @nospecialize
+    println(io, postprocess_expr_string(c.expr))
+    println(io, "@ ", c.file, ":", c.line)
+    c.occurrence == c.occurrences == 1 || println(io, "occurrence: ", c.occurrence, "/", c.occurrences)
+    hist(io, c.primary_data, c.comparison_data)
+end
+
 # TODO: make this weak dep and/or move it to a separate package that lives in default environments
 # but otoh, this mono-package has a 2-second precompile time and a 2ms load time and the versions
 # of the two pacakges are tightly coupled so maybe not worth it?
