@@ -1,0 +1,13 @@
+name = "TestPackage"
+uuid = "f408aecc-36b1-5a96-a0c5-807e1fd01a72"
+authors = ["Lilith Hafner <Lilith.Hafner@gmail.com> and contributors"]
+version = "0.0.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
