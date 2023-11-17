@@ -100,9 +100,9 @@ referring to increases or degreases, we only count area on one side of the x=y l
 gist of this is that we report a positive result for anything that can be efficiently
 detected with low false positivity rates.
 
-[^2]: More generally, for any `k > .025`, `recall` loss is according to empirical estimation,
-at most `max(1e-4, 20^(1-k/.025))`. So, for example, a regression with `k = .1`, will be
-escape detection at most 1 out of 8000 times.
+[^2]: More generally, for any `k > .025`, `recall` loss is, according to empirical
+estimation, at most `max(1e-4, 20^(1-k/.025))`. So, for example, a regression with `k = .1`,
+will escape detection at most 1 out of 8000 times.
 
 Note: the numbers in these statistical claims are based on empirical data. They likely
 accurate, but we're still looking for proofs and closed forms.
