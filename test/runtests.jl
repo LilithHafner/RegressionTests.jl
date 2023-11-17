@@ -47,8 +47,7 @@ using Pkg
         end
     end
 
-    # @testset "Regression tests" begin
-    #     using RegressionTests
-    #     runbenchmarks()
-    # end
+    @testset "Regression tests" begin
+        RegressionTests.test()
+    end
 end
