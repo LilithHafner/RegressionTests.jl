@@ -56,7 +56,7 @@ function runbenchmarks(;
     end
 
     lens = 45, 75, 120, 300
-    revs = shuffle!(repeat([primary, comparison], lens[1]))
+    revs = shuffle!(vcat(falses(lens[1]), trues(lens[1])))
     # TODO take a random shuffle that fails the first "plausibly different" test
     # so that things that are literally equal will never make it past the first round
     static_metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
@@ -64,7 +64,7 @@ function runbenchmarks(;
     datas = Vector{Vector{Float64}}(undef, length(revs))
 
     function setup_env(i, worker)
-        rev = revs[i]
+        rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
         if rev == "dev"
             Pkg.develop(PackageSpec(path=project), io=devnull)
@@ -140,9 +140,11 @@ function runbenchmarks(;
                             printstyled("ERROR:", color=:red)
                             println(" Worker $worker running trial $(work[worker]) failed.")
                             println("Worker 1 did not quickly reproduce the failure, reporting worker $worker's logs below")
-                            println("===============================================================================")
+                            x = rand(UInt16)
+                            println("======================================================================>$x")
                             @assert p.out === p.err
-                            print(read(p.err, String))
+                            println(read(p.err, String))
+                            println("======================================================================<$x")
                         end
                         # _wait(workers-1) # `worker` is already popped from the worker pool
                         return true # failure
@@ -271,7 +273,7 @@ function runbenchmarks(;
         (sc == 0 || i == lastindex(lens)) && break
         println(sc, "/", length(plausibly_different), " tracked results are plausibly different. Running more trials for them")
         old_len = length(revs)
-        append!(revs, shuffle!(repeat([primary, comparison], lens[i+1]-lens[i])))
+        append!(revs, shuffle!(vcat(trues(lens[i+1]-lens[i]), falses(lens[i+1]-lens[i]))))
         inds = old_len+1:length(revs)
         print("0/$(length(inds))")
         resize!(static_metadatas, length(revs))
@@ -309,8 +311,8 @@ function runbenchmarks(;
                     first(static_metadatas)[m]...,
                     counts[m],
                     occurrences[m],
-                    [datas[i][changes_i] for i in eachindex(datas) if revs[i] == primary],
-                    [datas[i][changes_i] for i in eachindex(datas) if revs[i] == comparison],
+                    [datas[i][changes_i] for i in eachindex(datas) if !revs[i]],
+                    [datas[i][changes_i] for i in eachindex(datas) if revs[i]],
                 )
             end
         end
@@ -488,7 +490,7 @@ end
 
 const WARNED = Ref(false)
 const THRESHOLDS = Dict(45 => .005, 75 => .007, 120 => .008, 300 => .014)
-function are_different(tags, data)
+function are_different(tags::BitVector, data)
     length(tags) == length(data) || error("Length mismatch")
     n = Int(length(tags)/2)
     n in keys(THRESHOLDS) || ((WARNED[] || @warn("DEBUG MODE")); WARNED[] = true; return rand(Bool))
