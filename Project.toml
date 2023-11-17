@@ -12,11 +12,11 @@ Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [compat]
 Compat = "4.10"
-Markdown = "1.9"
-Pkg = "1.9"
-Random = "1.9"
-Serialization = "1.9"
-julia = "1.9"
+Markdown = "1.6"
+Pkg = "1.6"
+Random = "1.6"
+Serialization = "1.6"
+julia = "1.6"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
