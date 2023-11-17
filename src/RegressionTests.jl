@@ -158,12 +158,10 @@ function runbenchmarks(;
                             printstyled("ERROR:", color=:red)
                             println(" Worker $worker running trial $(work[worker]) failed.")
                             println("Worker 1 did not quickly reproduce the failure, reporting worker $worker's logs below")
-                            x = rand(UInt16)
-                            println("======================================================================>$x")
+                            println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
                             @assert p.out === p.err
-                            dump(p.err)
-                            println(read(p.err, String))
-                            println("======================================================================<$x")
+                            print(String(take!(p.err)))
+                            println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
                         end
                         # _wait(workers-1) # `worker` is already popped from the worker pool
                         return true # failure
