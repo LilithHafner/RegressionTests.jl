@@ -22,6 +22,24 @@ export @track, @group
 # TODO track load time
 # TODO track TTFX
 
+function report_changes(changes)
+    if isempty(changes)
+        println("RegressionTests.jl detected no changes")
+        true
+    else
+        sort!(changes, by=c->(c.is_decrease - 2c.is_increase, c.file, c.line, c.expr))
+        println("RegressionTests.jl detected changes:")
+        for c in changes
+            println(c)
+        end
+        !c.is_increase
+    end
+end
+
+test(::Type{Bool}) = report_changes(runbenchmarks(project=dirname(pwd())))
+struct RegressionTestFailure <: Exception end
+test() = test(Bool) || throw(RegressionTestFailure())
+
 """
     runbenchmarks()
 
@@ -31,7 +49,7 @@ the benchmarks in `bench/runbenchmarks.jl`.
 There are some keyword arguments, but they are not public.
 """
 function runbenchmarks(;
-        project = dirname(pwd()), # run from test directory
+        project = pwd(), # run from project directory
         bench_project = joinpath(project, "bench"),
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         primary = "dev",
@@ -143,6 +161,7 @@ function runbenchmarks(;
                             x = rand(UInt16)
                             println("======================================================================>$x")
                             @assert p.out === p.err
+                            dump(p.err)
                             println(read(p.err, String))
                             println("======================================================================<$x")
                         end
@@ -322,8 +341,14 @@ function runbenchmarks(;
 
     return changes
 end
+
 function runbenchmarks_pkg()
-    runbenchmarks(project = dirname(Pkg.project().path))
+    changes = runbenchmarks(project = dirname(Pkg.project().path))
+    changes === nothing && return nothing
+    push!(RESULTS, changes)
+    report_changes(changes)
+    println("View full results with RegressionTests.RESULTS[end]")
+    nothing
 end
 
 struct Change
@@ -337,6 +362,7 @@ struct Change
     is_increase::Bool
     is_decrease::Bool
 end
+const RESULTS = Vector{Change}[]
 
 function postprocess_expr_string(expr::String)
     expr = replace(expr, r"\n\s*#= .*:\d+ =#\s*\n" => "\n")
@@ -412,13 +438,13 @@ end
 function print_status(io::IO, is_increase::Bool, is_decrease::Bool)
     if is_increase && is_decrease
         print(io, "Both ")
-        printstyled(io, "increased", color=:red)
+        printstyled(io, "increase", color=:red)
         print(io, " and ")
-        printstyled(io, "decreased", color=:green)
+        printstyled(io, "decrease", color=:green)
     elseif is_increase
-        printstyled(io, "Increased", color=:red)
+        printstyled(io, "Increase", color=:red)
     elseif is_decrease
-        printstyled(io, "Decreased", color=:green)
+        printstyled(io, "Decrease", color=:green)
     else
         printstyled(io, "INVALID", color=:blue)
     end
