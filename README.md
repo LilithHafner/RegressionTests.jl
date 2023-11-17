@@ -1,5 +1,7 @@
 # RegressionTests
 
+Regression tests without false positives
+
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://LilithHafner.github.io/RegressionTests.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://LilithHafner.github.io/RegressionTests.jl/dev/)
 [![Build Status](https://github.com/LilithHafner/RegressionTests.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/LilithHafner/RegressionTests.jl/actions/workflows/CI.yml?query=branch%3Amain)
@@ -19,60 +21,88 @@ MyPackage
 │   └── MyPackage.jl
 ├── test
 │   └── runtests.jl
-└── benchmarks
+└── bench
     └── runbenchmarks.jl
 ```
 
-And put
+Put this in your MyPackage.jl file:
+```julia
+module MyPackage
+    function compute()
+        return sum(rand(100))
+    end
+end
+```
+And commit your changes. This is our baseline.
+
+Now, let's add regression tests. Put this in your `test/runtests.jl` file:
 ```julia
 import RegressionTests
-RegressionTests.run(joinpath(dirname(@__DIR__), "bemchmarks", "runbenchmarks.jl"))
+RegressionTests.test()
 ```
 
-At the bottom of your `tests/runtests.jl` file. For the sake of consistency, this directory
-structure is recommended.
-
-Then in `benchmarks/runbenchmarks.jl` put
-
+And put this in your `bench/runbenchmarks.jl` file:
 ```julia
-using RegressionTests, Chairmarks
+using RegressionTests, Chairmarks, MyPackage
 
-@regression_test :auto @b rand(100)
-@regression_test :auto @b rand(1000)
+@track (@b MyPackage.compute() seconds=.01).time
 ```
 
-Then run `include("benchmarks/runbenchmarks.jl")` from the REPL. This will return
-immediately and transform the file to
+The `@b` macro, from [`Chairmarks`](https://github.com/LilithHafner/Chairmarks.jl), will
+benchmark the `compute` function, and the [`@track`] macro from `RegressionTests` will
+track the result of that benchmark.
 
+Then run your package tests with `]test`. The tests should pass and report that no
+regressions were found.
+
+Now, let's introduce a 10% regression. Change the `compute` function to this:
 ```julia
-using RegressionTests, Chairmarks
-
-@regression_test 0x4fcde3a9 @b rand(100)
-@regression_test 0x0381af3e @b rand(1000)
+function compute()
+    return sum(rand(110))
+end
 ```
 
-Where the hex numbers are automatically generated unique identifiers for the tests so that
-they can be tracked reliably across versions of the package. [The size of the random numbers
-is determined automatically. It will match the size of the largest existing test identifier,
-unless there are no existing tests, in which case it will be 32 bits.]
+And rerun `]test`. The tests should fail and display the result of the regression test.
 
-Then run your package tests with `]test`. This will run your existing tests, followed by a
-new testset that runs all the regression tests. However, note that there are no tests in the
-new testset. This is because the regression tests are not present on the previous version of
-the repository, so they are not run. [Though they are run one time on the current version
-to ensure that they correctly produce real numbers.]
+# `]bench`
 
-Commit these changes and then run `]test` again. This time, the regression tests will be run
-and should report two passed tests.
+Any time RegressionTests.jl is loaded, you can use `]bench` to run your benchmarks and
+report the results which you can then revisit later by accessing `RegressionTests.RESULTS`.
 
-Now, change the code in the benchmark file to
+To make the most use of this feature, you can add `using RegressionTests` to your startup.jl
+file.
 
-```julia
-using RegressionTests, Chairmarks
+# Methodology
 
-@regression_test 0x4fcde3a9 (@b rand(100)).time
-@regression_test 0x0381af3e (@b rand(1010)).time
-```
+All the various ways of running benchmarks with this package funnel through a
+`runbenchmarks` function which performs a randomized controlled trial comparing two
+versions of a package. Each datapoint is a result of restarting Julia, loading a randomly
+chosen version of the target package, and recording the tracked values.
 
-This time, when you run `]test`, the regression tests will fail. This is because the
-second test now produces a higher number (higher is worse, by default).
+The results are then compared in a value independent manner that makes no assumptions about
+the actual values of the targets (other than that they are real numbers).
+
+We make the following statistical claims for each tracked value `t`
+- If the distributions of `t` is independent of the version being tested, then this will
+  report a change with probability approximately `1e-10`.
+- If the distributions of `t` on the two tested versions differ[^1] by at least `k ≥ .05`,
+  then this will report a change with probability `≤ 0.95`[^2].
+- All reported changes are tagged as either increases, decreases, or both.
+- If all percentiles of `t` are on the primary version are greater than or equal to their
+  corresponding values on the comparison version, then `t` will be incorrectly reported as a
+  decrease with probability `≤ 1e-5`. (and vice versa)
+- If there is an increase with significance[^1] `k ≥ .05`, then that increase will be reported
+  with probability `≥ 0.95`.
+
+[^1]: Significance is measured by the integral from 0 to 1 of `(cdf(g)(invcdf(f)(x)) - x)^2`.
+This can be thought of as the squared area of deviation from x=y in the cdf/cdf plot. When
+referring to increases or degreases, we only count area on one side of the x=y line. The
+gist of this is that we report a positive result for anything that can be efficiently
+detected with low false positivity rates.
+
+[^2]: More generally, for any `k > .025`, `recall` loss is according to empirical estimation,
+at most `max(1e-4, 20^(1-k/.025))`. So, for example, a regression with `k = .1`, will be
+escape detection at most 1 out of 8000 times.
+
+Note: the numbers in these statistical claims are based on empirical data. They likely
+accurate, but we're still looking for proofs and closed forms.
