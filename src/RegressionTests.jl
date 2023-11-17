@@ -313,6 +313,8 @@ function runbenchmarks(;
                     occurrences[m],
                     [datas[i][changes_i] for i in eachindex(datas) if !revs[i]],
                     [datas[i][changes_i] for i in eachindex(datas) if revs[i]],
+                    are_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=true),
+                    are_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=false),
                 )
             end
         end
@@ -332,6 +334,8 @@ struct Change
     occurrences::Int
     primary_data::Vector{Float64}
     comparison_data::Vector{Float64}
+    is_increase::Bool
+    is_decrease::Bool
 end
 
 function postprocess_expr_string(expr::String)
@@ -405,8 +409,24 @@ function hist(io::IO, primary::Vector{Float64}, comparison::Vector{Float64})
     hi_str = Base.Ryu.writeshortest(hi2, false, false, true, -1, UInt8('e'), false, UInt8('.'), false, true)
     println(io, "∞ 0 < └", lo_str, lpad(hi_str, bins-length(lo_str)-2), "┘ < ∞ N")
 end
+function print_status(io::IO, is_increase::Bool, is_decrease::Bool)
+    if is_increase && is_decrease
+        print(io, "Both ")
+        printstyled(io, "increased", color=:red)
+        print(io, " and ")
+        printstyled(io, "decreased", color=:green)
+    elseif is_increase
+        printstyled(io, "Increased", color=:red)
+    elseif is_decrease
+        printstyled(io, "Decreased", color=:green)
+    else
+        printstyled(io, "INVALID", color=:blue)
+    end
+    println(io)
+end
 function Base.show(io::IO, c::Change) # TODO: check the impact on load time
     @nospecialize
+    print_status(io, c.is_increase, c.is_decrease)
     println(io, postprocess_expr_string(c.expr))
     println(io, "@ ", c.file, ":", c.line)
     c.occurrence == c.occurrences == 1 || println(io, "occurrence: ", c.occurrence, "/", c.occurrences)
@@ -490,7 +510,7 @@ end
 
 const WARNED = Ref(false)
 const THRESHOLDS = Dict(45 => .005, 75 => .007, 120 => .008, 300 => .014)
-function are_different(tags::BitVector, data)
+function are_different(tags::BitVector, data; increase::Union{Bool, Nothing}=nothing)
     length(tags) == length(data) || error("Length mismatch")
     n = Int(length(tags)/2)
     n in keys(THRESHOLDS) || ((WARNED[] || @warn("DEBUG MODE")); WARNED[] = true; return rand(Bool))
@@ -502,9 +522,13 @@ function are_different(tags::BitVector, data)
     for i in eachindex(data)
         sum += tags[perm[i]]
         delta = 2sum - i
+        increase === nothing || increase === (delta > 0) || continue
         err += delta^2
     end
     @assert sum === n
+    if increase !== nothing
+        err *= 2 # Because of the changed prior, more than anything else
+    end
     err < (threshold*n^3)*4+n && return false
     return true
 end
