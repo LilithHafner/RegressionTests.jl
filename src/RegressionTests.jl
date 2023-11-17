@@ -4,6 +4,7 @@ module RegressionTests
 using Random
 using Pkg, Markdown
 using Serialization
+using Compat
 
 # Callie
 using Serialization
@@ -11,6 +12,7 @@ using Serialization
 
 # Caller
 export runbenchmarks
+@compat public test
 
 # Callie
 export @track, @group
@@ -39,6 +41,13 @@ end
 
 test(::Type{Bool}) = report_changes(runbenchmarks(project=dirname(pwd())))
 struct RegressionTestFailure <: Exception end
+
+"""
+    test()
+
+When called in testing, runs regression tests, reports all changes, and throws if there are
+regressions.
+"""
 test() = test(Bool) || throw(RegressionTestFailure())
 
 """
