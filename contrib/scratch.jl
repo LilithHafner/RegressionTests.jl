@@ -15,7 +15,7 @@ function Random.shuffle!(v::AbstractVector{Bool}) # https://github.com/JuliaLang
     v
 end
 
-function sample(n::Integer, trials=1000)
+function sample(n::Integer, trials=1000; only_positive=false)
     x = Vector(vcat(falses(n), trues(n)))
     res = zeros(Int, trials)
     for i in 1:trials
@@ -25,9 +25,10 @@ function sample(n::Integer, trials=1000)
         for j in 1:2n
             sum += x[j]
             delta = 2sum - j
+            delta < 0 && only_positive && continue
             err += delta^2
         end
-        res[i] = Int((err - n)/4)
+        res[i] = only_positive ? round(Int,(err - n)/4) : Int((err - n)/4)
     end
     res
 end
@@ -43,8 +44,8 @@ With 100 samples, if k > .02, we have 5 9s of reliability (1e-5) on false positi
 and if k > .04, we have (extrapolated) 1e-10 reliability.
 This function creates and plots empirical data to back this claim up.
 """
-function plot_false_positives(;n=100, m=10_000_000, k=200)
-    data = sample(n, m)
+function plot_false_positives(;n=100, m=10_000_000, k=200, only_positive=false)
+    data = sample(n, m; only_positive)
     x = sort!(data) / n^3
     y = 1 .- ((eachindex(x) .- 1) ./ length(x))
 
