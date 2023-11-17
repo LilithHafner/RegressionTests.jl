@@ -24,7 +24,8 @@ export @track, @group
 
 function report_changes(changes)
     if isempty(changes)
-        println("RegressionTests.jl detected no changes")
+        print("RegressionTests.jl detected ")
+        printstyled("no changes\n", color=:green)
         true
     else
         sort!(changes, by=c->(c.is_decrease - 2c.is_increase, c.file, c.line, c.expr))
@@ -345,7 +346,7 @@ function runbenchmarks_pkg()
     changes === nothing && return nothing
     push!(RESULTS, changes)
     report_changes(changes)
-    println("View full results with RegressionTests.RESULTS[end]")
+    isempty(changes) || println("View full results with RegressionTests.RESULTS[end]")
     nothing
 end
 
