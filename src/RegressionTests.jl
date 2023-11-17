@@ -495,14 +495,12 @@ function are_different(tags::BitVector, data)
     n = Int(length(tags)/2)
     n in keys(THRESHOLDS) || ((WARNED[] || @warn("DEBUG MODE")); WARNED[] = true; return rand(Bool))
     threshold = THRESHOLDS[n]
-    ut = unique(tags)
-    length(ut) == 2 || error("Expected two tags")
-    count(==(ut[1]), tags) == count(==(ut[2]), tags) == n || error("Expected equal counts")
+    count(tags) == n || error("Expected equal counts")
     perm = sortperm(data) # A sorting dominated workload ?!?!?
     sum = 0
     err = 0
     for i in eachindex(data)
-        sum += tags[perm[i]] == ut[1]
+        sum += tags[perm[i]]
         delta = 2sum - i
         err += delta^2
     end
