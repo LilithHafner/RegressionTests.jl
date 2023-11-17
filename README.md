@@ -10,6 +10,10 @@ Regression tests without false positives
 [![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 
+# Stability: Experimental
+
+This package is buggy, examples are only partially tested, CI fails, and the API is under active development.
+
 # Usage instructions by example (a tutorial)
 
 Setup your package directory like this:
