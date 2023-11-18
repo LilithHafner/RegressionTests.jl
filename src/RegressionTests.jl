@@ -95,7 +95,7 @@ function runbenchmarks(;
         rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
         if rev == "dev"
-            Pkg.develop(path=project)
+            Pkg.develop(path=project, io=devnull)
         else
             cd(project) do # Mostly for CI
                 if success(`git status`) && !success(`git rev-parse --verify $rev`)
@@ -113,7 +113,7 @@ function runbenchmarks(;
             try
                 Pkg.add(path=project, rev=rev)
             catch
-                println("FAIL 1")
+                println("Ran `Pkg.add(path=project, rev=rev)`")
                 println("project = ", project)
                 println("rev = ", rev)
                 println(readdir(project))
