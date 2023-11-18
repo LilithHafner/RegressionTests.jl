@@ -21,12 +21,14 @@ using Pkg
                 println("A")
                 if get(ENV, "CI", "false") == "true"
                     run(`git config --global init.defaultBranch main`)
-                    run(`git config user.email "CI@example.com"`)
-                    run(`git config user.name "CI"`)
                 end
                 println("B")
                 run(`git init`)
                 println("C")
+                if get(ENV, "CI", "false") == "true"
+                    run(`git config user.email "CI@example.com"`)
+                    run(`git config user.name "CI"`)
+                end
                 run(`git add .`)
                 println("D")
                 run(`git commit -m "Initial content"`)
