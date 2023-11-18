@@ -100,7 +100,7 @@ function runbenchmarks(;
             cd(project) do # Mostly for CI
                 if success(`git status`) && !success(`git rev-parse --verify $rev`)
                     iob = IOBuffer()
-                    wait(run(`git remote`, stdout=iob, wait=false))
+                    wait(run(`git remote`, devnull, iob; wait=false))
                     remotes = split(String(take!(iob)), '\n')
                     if length(remotes) == 1
                         run(`git fetch $(only(remotes)) $rev`) # Assume that the remote is origin :(
