@@ -23,8 +23,13 @@ using Pkg
                 println("B")
                 run(`git add .`)
                 println("C")
-                run(`git commit -m "Initial content" --author "CI <>"`)
+                if get(ENV, "CI", "false") == "true"
+                    run(`git config user.email "CI@example.com"`)
+                    run(`git config user.name "CI"`)
+                end
                 println("D")
+                run(`git commit -m "Initial content"`)
+                println("E")
                 old_src = read(src_file, String)
                 new_src = replace(old_src, "my_sum(x) = sum(x)" => "my_sum(x) = sum(Float64.(x))")
                 write(src_file, new_src)
@@ -34,7 +39,7 @@ using Pkg
                 @test any(occursin("my_sum", c.expr) for c in changes) # This did change
                 println.(changes)
                 run(`git add $src_file`)
-                run(`git commit -m "Introduce regression" --author "CI <>"`)
+                run(`git commit -m "Introduce regression"`)
                 @test isempty(runbenchmarks(project = ".")) # Pass
                 # TODO: handle this case well
                 # TODO: track the runtime of these runbenchmark calls... but we can't use RegressionTests.jl because that would be too slow.
