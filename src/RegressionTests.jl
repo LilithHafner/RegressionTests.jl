@@ -103,11 +103,15 @@ function runbenchmarks(;
                     wait(run(`git remote`, devnull, iob; wait=false))
                     remotes = split(String(take!(iob)), '\n', keepempty=false)
                     if length(remotes) == 1
+                        println("A")
                         run(ignorestatus(`git fetch $(only(remotes)) $rev`))
+                        println("B")
                     end
                 end
             end
+            println("C")
             Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
+            println("D")
         end
         Pkg.instantiate(io=devnull)
     end
