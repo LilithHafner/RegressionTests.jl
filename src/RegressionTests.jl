@@ -101,9 +101,9 @@ function runbenchmarks(;
                 if success(`git status`) && !success(`git rev-parse --verify $rev`)
                     iob = IOBuffer()
                     wait(run(`git remote`, devnull, iob; wait=false))
-                    remotes = split(String(take!(iob)), '\n')
+                    remotes = split(String(take!(iob)), '\n', keepempty=false)
                     if length(remotes) == 1
-                        run(`git fetch $(only(remotes)) $rev`) # Assume that the remote is origin :(
+                        run(ignorestatus(`git fetch $(only(remotes)) $rev`))
                     end
                 end
             end
