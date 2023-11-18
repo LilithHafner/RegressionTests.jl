@@ -95,7 +95,7 @@ function runbenchmarks(;
         rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
         if rev == "dev"
-            Pkg.develop(PackageSpec(path=project), io=devnull)
+            Pkg.develop(path=project)
         else
             cd(project) do # Mostly for CI
                 if success(`git status`) && !success(`git rev-parse --verify $rev`)
@@ -111,7 +111,7 @@ function runbenchmarks(;
             end
             # println("C")
             try
-                Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
+                Pkg.add(path=project, rev=rev)
             catch
                 println("FAIL 1")
                 println("project = ", project)
