@@ -19,21 +19,24 @@ using Pkg
                 Pkg.activate("bench")
                 Pkg.add(path=regression_tests_path)
                 println("A")
-                run(`git init`)
-                println("B")
-                run(`git add .`)
-                println("C")
                 if get(ENV, "CI", "false") == "true"
+                    run(`git config --global init.defaultBranch main`)
                     run(`git config user.email "CI@example.com"`)
                     run(`git config user.name "CI"`)
                 end
+                println("B")
+                run(`git init`)
+                println("C")
+                run(`git add .`)
                 println("D")
                 run(`git commit -m "Initial content"`)
                 println("E")
                 old_src = read(src_file, String)
                 new_src = replace(old_src, "my_sum(x) = sum(x)" => "my_sum(x) = sum(Float64.(x))")
                 write(src_file, new_src)
+                println("F")
                 changes = runbenchmarks(project = ".") # Fail
+                println("G")
                 @test !isempty(changes)
                 @test !any(occursin("my_prod", c.expr) for c in changes) # Those didn't change
                 @test any(occursin("my_sum", c.expr) for c in changes) # This did change
