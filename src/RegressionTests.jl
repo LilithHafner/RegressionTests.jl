@@ -224,8 +224,10 @@ function runbenchmarks(;
             do_work(inds) do j
                 num_completed[] += 1
                 num_completed[] == 1 && i == 1 && println(rpad("\r$(sum(length, datas[j])) tracked results", 34))
-                print("\r$(num_completed[]) / $(length(inds))")
-                flush(stdout)
+                if isinteractive()
+                    print("\r$(num_completed[]) / $(length(inds))")
+                    flush(stdout)
+                end
             end && return nothing # do_work failed
         finally
             Pkg.activate(p, io=devnull) # More for the return than for errors.
