@@ -109,9 +109,16 @@ function runbenchmarks(;
                     end
                 end
             end
-            println("C")
-            Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
-            println("D")
+            # println("C")
+            try
+                Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
+            catch
+                println("FAIL 1")
+                println("project = ", project)
+                println("rev = ", rev)
+                println(readdir(project))
+            end
+            # println("D")
         end
         Pkg.instantiate(io=devnull)
     end
