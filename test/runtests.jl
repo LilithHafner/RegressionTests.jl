@@ -19,7 +19,7 @@ using Pkg
                 Pkg.activate("bench")
                 Pkg.add(path=regression_tests_path)
                 println("A")
-                run(`git init --author "CI <>"`)
+                run(`git init`)
                 println("B")
                 run(`git add .`)
                 println("C")
