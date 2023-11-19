@@ -4,7 +4,6 @@ module RegressionTests
 using Random
 using Pkg, Markdown
 using Serialization
-using Compat
 
 # Callie
 using Serialization
