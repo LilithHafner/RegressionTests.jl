@@ -76,7 +76,7 @@ function runbenchmarks(;
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         primary = "dev",
         comparison = "main",
-        workers = get(ENG, "CI", "false") == "true" ? 10 : 15,#Sys.CPU_THREADS, TODO kill this hack
+        workers = get(ENV, "CI", "false") == "true" ? 10 : 15,#Sys.CPU_THREADS, TODO kill this hack
         )
 
     commands = Vector{Cmd}(undef, workers)
