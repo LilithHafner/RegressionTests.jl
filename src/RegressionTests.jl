@@ -118,6 +118,7 @@ function runbenchmarks(;
                 println("rev = ", rev)
                 Pkg.status()
                 println(readdir(project))
+                rethrow()
             end
         end
         Pkg.instantiate(io=devnull)
