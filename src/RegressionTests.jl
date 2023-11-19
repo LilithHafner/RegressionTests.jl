@@ -317,7 +317,7 @@ function runbenchmarks(;
         old_len = length(revs)
         append!(revs, shuffle!(vcat(trues(lens[i+1]-lens[i]), falses(lens[i+1]-lens[i]))))
         inds = old_len+1:length(revs)
-        print("0/$(length(inds))")
+        isinteractive() && print("0/$(length(inds))")
         resize!(static_metadatas, length(revs))
         resize!(runtime_metadatas, length(revs))
         resize!(datas, length(revs))
