@@ -4,7 +4,7 @@ rev = "main"
 
 run(`git branch`)
 
-# run(ignorestatus(`git fetch origin $rev`))
+run(ignorestatus(`git fetch --all $rev`))
 
 println(success(`git rev-parse --verify $rev`))
 run(ignorestatus(`git checkout $rev`))
