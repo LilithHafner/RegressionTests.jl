@@ -45,6 +45,10 @@ using Pkg
         Aqua.test_all(RegressionTests, deps_compat=false)
     end
 
+    @testset "Regression tests" begin
+        RegressionTests.test()
+    end
+
     @testset "Example usage" begin
         regression_tests_path = dirname(dirname(@__FILE__))
         package = Pkg.project().path
@@ -88,9 +92,5 @@ using Pkg
                 cp(backup, src_file, force=true)
             end
         end
-    end
-
-    @testset "Regression tests" begin
-        RegressionTests.test()
     end
 end
