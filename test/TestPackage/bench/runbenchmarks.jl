@@ -10,6 +10,8 @@ for len in [1, 10, 100]
         @track @elapsed for _ in 1:100 my_sum(x) end
         @track @elapsed for _ in 1:100 my_sum(x) end
 
+        GC.gc()
+
         @track @elapsed my_prod(x)
         @track @elapsed for _ in 1:100 my_prod(x) end
         @track @elapsed for _ in 1:100 my_prod(x) end
