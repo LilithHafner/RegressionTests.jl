@@ -1,7 +1,7 @@
 using RegressionTests
 
-@track @elapsed using TestPackage
-using TestPackage # in case the @track doesn't run TODO: add `required=true` or `skip=false` option
+t = @elapsed using TestPackage
+@track t # in case the @track doesn't run TODO: add `required=true` or `skip=false` option
 
 for len in [1, 10, 100]
     @group begin
