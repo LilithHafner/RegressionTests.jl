@@ -60,6 +60,8 @@ function plot_false_positives(;n=100, m=10_000_000, k=200, only_positive=false)
     push!(X, x[inds])
     push!(Y, y[inds])
     plot!(x[inds], y[inds], yaxis=:log, yticks=10, xticks=10)
+    prob(k) = √2*erfc(π*√(k*n/2))
+    plot!(x[inds], prob.(x[inds]), color=:black, linestyle=:dash)
 end
 
 #=
