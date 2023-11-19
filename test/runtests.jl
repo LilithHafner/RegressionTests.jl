@@ -2,7 +2,7 @@ using Pkg
 project = dirname(@__DIR__)
 rev = "main"
 try
-    Pkg.add(path=project, rev=rev)
+    Pkg.add(url=project, rev=rev)
 catch
     println("Ran `Pkg.add(path=project, rev=rev)`")
     println("project = ", project)
