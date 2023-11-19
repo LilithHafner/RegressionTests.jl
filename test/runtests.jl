@@ -13,7 +13,7 @@ using Pkg
         RegressionTests.test()
     end
 
-    if RegresseionTests.is_platform_supported()
+    if RegressionTests.is_platform_supported()
         @testset "Example usage" begin
             regression_tests_path = dirname(dirname(@__FILE__))
             package = Pkg.project().path
