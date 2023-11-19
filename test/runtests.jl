@@ -1,22 +1,19 @@
 using Pkg
 project = dirname(@__DIR__)
 rev = "main"
-run(ignorestatus(`git rev-parse --verify --quiet $rev`))
-println("A")
-run(`git status`)
-println("B")
+
 run(`git branch`)
-println("C")
-println(success(`git rev-parse --verify $rev`))
-run(ignorestatus(`git fetch origin $rev`))
+
+# run(ignorestatus(`git fetch origin $rev`))
+
 println(success(`git rev-parse --verify $rev`))
 run(ignorestatus(`git checkout $rev`))
 println(success(`git rev-parse --verify $rev`))
+
 run(ignorestatus(`git switch - --detach`))
-println(success(`git rev-parse --verify $rev`))
-println("D")
+
 run(`git branch`)
-println("E")
+
 try
     Pkg.add(path=project, rev=rev)
 catch
