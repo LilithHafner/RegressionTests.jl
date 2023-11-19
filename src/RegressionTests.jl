@@ -237,7 +237,7 @@ function runbenchmarks(;
             do_work(inds) do j
                 num_completed[] += 1
                 num_completed[] == 1 && i == 1 && println(rpad("\r$(sum(length, datas[j])) tracked results", 34))
-                if isinteractive()
+                if stdout isa Base.TTY
                     print("\r$(num_completed[]) / $(length(inds))")
                     flush(stdout)
                 end
@@ -317,7 +317,7 @@ function runbenchmarks(;
         old_len = length(revs)
         append!(revs, shuffle!(vcat(trues(lens[i+1]-lens[i]), falses(lens[i+1]-lens[i]))))
         inds = old_len+1:length(revs)
-        isinteractive() && print("0/$(length(inds))")
+        stdout isa Base.TTY && print("0/$(length(inds))")
         resize!(static_metadatas, length(revs))
         resize!(runtime_metadatas, length(revs))
         resize!(datas, length(revs))
