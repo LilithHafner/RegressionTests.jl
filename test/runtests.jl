@@ -1,6 +1,12 @@
 using Pkg
 project = dirname(@__DIR__)
 rev = "CI"
+run(ignorestatus(`git rev-parse --verify --quiet $rev`))
+println("A")
+run(`git status`)
+println("B")
+run(`git branch`)
+println("C")
 try
     Pkg.add(Pkg.PackageSpec(path=project, rev=rev))
 catch
