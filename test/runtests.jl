@@ -1,6 +1,6 @@
 using Pkg
 project = dirname(@__DIR__)
-rev = "main"
+rev = "CI"
 try
     Pkg.add(Pkg.PackageSpec(path=project, rev=rev))
 catch
