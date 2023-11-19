@@ -2,6 +2,7 @@ using Pkg
 project = dirname(@__DIR__)
 rev = "main"
 
+p = Pkg.project().path
 Pkg.activate(tempname())
 
 cd(project) do # Mostly for CI
@@ -31,6 +32,8 @@ catch
     end
     rethrow()
 end
+
+Pkg.activate(p)
 
 using RegressionTests
 using Test
