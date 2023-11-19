@@ -110,3 +110,21 @@ will escape detection at most 1 out of 8000 times.
 
 Note: the numbers in these statistical claims are based on empirical data. They likely
 accurate, but we're still looking for proofs and closed forms.
+
+# Supported platforms and versions
+
+Julia version | Linux | MacOS | Windows | Other
+--------------|-----|------|------|-----
+≤0.7          | ❌  | ❌  | ❌  | ❌
+1.0           | ⚠️+  | ⚠️+ | ⚠️+ | ⚠️
+[1.1, 1.5]    | ⚠️   | ⚠️  | ⚠️  | ⚠️
+1.6           | ✅+ | ✅+ | ⚠️+ | ?
+[1.7, stable) | ✅  | ✅  | ⚠️  | ?
+stable        | ✅+ | ⚠️+ | ⚠️+ | ?
+nightly       | ?+ | ?+ | ?+ | ?
+
+❌ Not supported\
+⚠️ Not functional, but `RegressionTests.test(skip_unsupported_platforms=true)` works\
+✅ Supported\
+? Unknown and subject to change at any time\
+\+ Tested in CI

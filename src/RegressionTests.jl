@@ -12,7 +12,8 @@ using Serialization
 
 # Caller
 export runbenchmarks
-@compat public test
+VERSION >= v"1.11.0-DEV.469" && eval(Expr(:public, :test))
+
 
 # Callie
 export @track, @group
@@ -39,16 +40,27 @@ function report_changes(changes)
     end
 end
 
-test(::Type{Bool}) = report_changes(runbenchmarks(project=dirname(pwd())))
+is_platform_supported() = VERSION >= v"1.6" && !Sys.iswindows() && !(VERSION.minor == 9 && Sys.isapple())
+
+function test(::Type{Bool}; skip_unsupported_platforms=false)
+    if skip_unsupported_platforms && !is_platform_supported()
+        @warn "Skipping regression tests on unsupported platform"
+        return true
+    end
+    report_changes(runbenchmarks(project=dirname(pwd())))
+end
 struct RegressionTestFailure <: Exception end
 
 """
-    test()
+    test(skip_unsupported_platforms=false)
 
 When called in testing, runs regression tests, reports all changes, and throws if there are
 regressions.
+
+Set `skip_unsupported_platforms` to true to skip the test (quietly pass) on platforms that
+are not supported.
 """
-test() = test(Bool) || throw(RegressionTestFailure())
+test(; kw...) = test(Bool; kw...) || throw(RegressionTestFailure())
 
 """
     runbenchmarks()
@@ -95,9 +107,22 @@ function runbenchmarks(;
         rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
         if rev == "dev"
-            Pkg.develop(PackageSpec(path=project), io=devnull)
+            Pkg.develop(path=project, io=devnull)
         else
-            Pkg.add(PackageSpec(path=project, rev=rev), io=devnull)
+            cd(project) do # Mostly for CI
+                if success(`git status`) && !success(`git rev-parse --verify $rev`)
+                    iob = IOBuffer()
+                    wait(run(`git remote`, devnull, iob; wait=false))
+                    remotes = split(String(take!(iob)), '\n', keepempty=false)
+                    if length(remotes) == 1
+                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
+                        run(ignorestatus(`git checkout $rev`))
+                        run(ignorestatus(`git switch - --detach`))
+                        println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
+                    end
+                end
+            end
+            Pkg.add(path=project, rev=rev, io=devnull)
         end
         Pkg.instantiate(io=devnull)
     end
@@ -224,8 +249,10 @@ function runbenchmarks(;
             do_work(inds) do j
                 num_completed[] += 1
                 num_completed[] == 1 && i == 1 && println(rpad("\r$(sum(length, datas[j])) tracked results", 34))
-                print("\r$(num_completed[]) / $(length(inds))")
-                flush(stdout)
+                if stdout isa Base.TTY
+                    print("\r$(num_completed[]) / $(length(inds))")
+                    flush(stdout)
+                end
             end && return nothing # do_work failed
         finally
             Pkg.activate(p, io=devnull) # More for the return than for errors.
@@ -302,7 +329,7 @@ function runbenchmarks(;
         old_len = length(revs)
         append!(revs, shuffle!(vcat(trues(lens[i+1]-lens[i]), falses(lens[i+1]-lens[i]))))
         inds = old_len+1:length(revs)
-        print("0/$(length(inds))")
+        stdout isa Base.TTY && print("0/$(length(inds))")
         resize!(static_metadatas, length(revs))
         resize!(runtime_metadatas, length(revs))
         resize!(datas, length(revs))
@@ -472,6 +499,7 @@ end
 # of the two pacakges are tightly coupled so maybe not worth it?
 # TODO: integrate with Revise (Revise triggers on ]test, but not on ]bench)
 function __init__()
+    VERSION < v"1.6.0" && return # 2-arg Pkg.REPLMode.ArgSpec is not present in some older versions
     Pkg.REPLMode.SPECS["package"]["bench"] = Pkg.REPLMode.CommandSpec(
         "bench", # Long name
         nothing, # short name
