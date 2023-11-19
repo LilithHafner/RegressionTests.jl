@@ -1,4 +1,5 @@
-using RegressionTests
+t = @elapsed using RegressionTests
+@track t
 using Chairmarks
 
 # TODO: handle interruption well even with this naughty code
