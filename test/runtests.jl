@@ -2,12 +2,13 @@ using Pkg
 project = dirname(@__DIR__)
 rev = "main"
 try
-    Pkg.add(url=project, rev=rev)
+    Pkg.add(Pkg.PackageSpec(path=project, rev=rev))
 catch
-    println("Ran `Pkg.add(path=project, rev=rev)`")
+    println("Ran `Pkg.add(Pkg.PackageSpec(path=project, rev=rev))`")
     println("project = ", project)
     println("rev = ", rev)
     println(readdir(project))
+    rethrow()
 end
 
 # using RegressionTests
