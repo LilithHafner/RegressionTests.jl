@@ -18,9 +18,9 @@ println("D")
 run(`git branch`)
 println("E")
 try
-    Pkg.add(Pkg.PackageSpec(path=project, rev=rev))
+    Pkg.add(path=project, rev=rev)
 catch
-    println("Ran `Pkg.add(Pkg.PackageSpec(path=project, rev=rev))`")
+    println("Ran `Pkg.add(path=project, rev=rev)`")
     println("project = ", project)
     println("rev = ", rev)
     println(readdir(project))
