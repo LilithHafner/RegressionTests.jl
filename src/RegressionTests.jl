@@ -98,9 +98,7 @@ function runbenchmarks(;
             Pkg.develop(path=project, io=devnull)
         else
             cd(project) do # Mostly for CI
-                println("A")
                 if success(`git status`) && !success(`git rev-parse --verify $rev`)
-                    println("B")
                     iob = IOBuffer()
                     wait(run(`git remote`, devnull, iob; wait=false))
                     remotes = split(String(take!(iob)), '\n', keepempty=false)
