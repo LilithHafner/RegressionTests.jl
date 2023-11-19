@@ -40,7 +40,7 @@ function report_changes(changes)
     end
 end
 
-is_platform_supported() = VERSION >= v"1.6" && !Sys.iswindows()
+is_platform_supported() = VERSION >= v"1.6" && !Sys.iswindows() && !(VERSION.minor == 9 && Sys.isapple())
 
 function test(::Type{Bool}; skip_unsupported_platforms=false)
     if skip_unsupported_platforms && !is_platform_supported()
@@ -76,7 +76,7 @@ function runbenchmarks(;
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         primary = "dev",
         comparison = "main",
-        workers = get(ENV, "CI", "false") == "true" ? 10 : 15,#Sys.CPU_THREADS, TODO kill this hack
+        workers = 15,#Sys.CPU_THREADS,
         )
 
     commands = Vector{Cmd}(undef, workers)
