@@ -10,7 +10,7 @@ using Pkg
 
     # TODO: make this work when it comes after "Example usage" as well.
     @testset "Regression tests" begin
-        RegressionTests.test()
+        RegressionTests.test(skip_unsupported_platforms=true)
     end
 
     if RegressionTests.is_platform_supported()

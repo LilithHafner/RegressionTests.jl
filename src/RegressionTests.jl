@@ -498,6 +498,7 @@ end
 # of the two pacakges are tightly coupled so maybe not worth it?
 # TODO: integrate with Revise (Revise triggers on ]test, but not on ]bench)
 function __init__()
+    VERSION < v"1.6.0" && return # 2-arg Pkg.REPLMode.ArgSpec is not present in some older versions
     Pkg.REPLMode.SPECS["package"]["bench"] = Pkg.REPLMode.CommandSpec(
         "bench", # Long name
         nothing, # short name
