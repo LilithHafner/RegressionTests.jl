@@ -97,6 +97,19 @@ function runbenchmarks(;
         if rev == "dev"
             Pkg.develop(path=project, io=devnull)
         else
+            cd(project) do # Mostly for CI
+                if success(`git status`) && !success(`git rev-parse --verify $rev`)
+                    iob = IOBuffer()
+                    wait(run(`git remote`, devnull, iob; wait=false))
+                    remotes = split(String(take!(iob)), '\n', keepempty=false)
+                    if length(remotes) == 1
+                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
+                        run(ignorestatus(`git checkout $rev`))
+                        run(ignorestatus(`git switch - --detach`))
+                        println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
+                    end
+                end
+            end
             Pkg.add(path=project, rev=rev, io=devnull)
         end
         Pkg.instantiate(io=devnull)
