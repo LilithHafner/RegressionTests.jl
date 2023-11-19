@@ -97,7 +97,7 @@ function runbenchmarks(;
         if rev == "dev"
             Pkg.develop(path=project, io=devnull)
         else
-            Pkg.add(path=project, rev=rev)
+            Pkg.add(path=project, rev=rev, io=devnull)
         end
         Pkg.instantiate(io=devnull)
     end
