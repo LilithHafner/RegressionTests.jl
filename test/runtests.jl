@@ -7,6 +7,10 @@ run(`git status`)
 println("B")
 run(`git branch`)
 println("C")
+run(ignorestatus(`git fetch origin $rev`))
+println("D")
+run(`git branch`)
+println("E")
 try
     Pkg.add(Pkg.PackageSpec(path=project, rev=rev))
 catch
