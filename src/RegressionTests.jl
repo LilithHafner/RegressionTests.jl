@@ -116,6 +116,7 @@ function runbenchmarks(;
                 println("Ran `Pkg.add(path=project, rev=rev)`")
                 println("project = ", project)
                 println("rev = ", rev)
+                Pkg.status()
                 println(readdir(project))
             end
         end
