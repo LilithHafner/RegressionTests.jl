@@ -118,6 +118,10 @@ function runbenchmarks(;
                 println("rev = ", rev)
                 Pkg.status()
                 println(readdir(project))
+                cd(project) do
+                    run(`git status`)
+                    run(`git branch`)
+                end
                 rethrow()
             end
         end
