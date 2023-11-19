@@ -103,13 +103,13 @@ function runbenchmarks(;
                     wait(run(`git remote`, devnull, iob; wait=false))
                     remotes = split(String(take!(iob)), '\n', keepempty=false)
                     if length(remotes) == 1
-                        println("A")
-                        run(ignorestatus(`git fetch $(only(remotes)) $rev`))
-                        println("B")
+                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
+                        run(ignorestatus(`git checkout $rev`))
+                        run(ignorestatus(`git switch - --detach`))
+                        println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
                     end
                 end
             end
-            # println("C")
             try
                 Pkg.add(path=project, rev=rev)
             catch
@@ -118,7 +118,6 @@ function runbenchmarks(;
                 println("rev = ", rev)
                 println(readdir(project))
             end
-            # println("D")
         end
         Pkg.instantiate(io=devnull)
     end
