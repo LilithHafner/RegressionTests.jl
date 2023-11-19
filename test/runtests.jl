@@ -1,6 +1,6 @@
 using Pkg
 project = dirname(@__DIR__)
-rev = "CI"
+rev = "main"
 run(ignorestatus(`git rev-parse --verify --quiet $rev`))
 println("A")
 run(`git status`)
