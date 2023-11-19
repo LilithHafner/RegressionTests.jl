@@ -12,7 +12,8 @@ using Serialization
 
 # Caller
 export runbenchmarks
-@compat public test
+VERSION >= v"1.11.0-DEV.469" && eval(Expr(:public, :test))
+
 
 # Callie
 export @track, @group
@@ -39,16 +40,27 @@ function report_changes(changes)
     end
 end
 
-test(::Type{Bool}) = report_changes(runbenchmarks(project=dirname(pwd())))
+is_platform_supported() = VERSION >= v"1.6" && !iswindows()
+
+function test(::Type{Bool}; skip_unsupported_platforms=false)
+    if skip_unsupported_platforms && !is_platform_supported()
+        @warn "Skipping regression tests on unsupported platform"
+        return true
+    end
+    report_changes(runbenchmarks(project=dirname(pwd())))
+end
 struct RegressionTestFailure <: Exception end
 
 """
-    test()
+    test(skip_unsupported_platforms=false)
 
 When called in testing, runs regression tests, reports all changes, and throws if there are
 regressions.
+
+Set `skip_unsupported_platforms` to true to skip the test (quietly pass) on platforms that
+are not supported.
 """
-test() = test(Bool) || throw(RegressionTestFailure())
+test(; kw...) = test(Bool; kw...) || throw(RegressionTestFailure())
 
 """
     runbenchmarks()
