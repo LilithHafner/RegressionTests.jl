@@ -37,5 +37,10 @@ for n in 1:50
 end
 
 for k in 1:1_000_000
+    # 1e-10 false positivity * 4e6 tracked values => 
+    # this should cause CI to fail at most 1/2500 times.
     @track k
+    @track rand()
+    @track randn()
+    @track rand([1,7,2,9])
 end
