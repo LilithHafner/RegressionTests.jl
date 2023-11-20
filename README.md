@@ -128,3 +128,13 @@ nightly       | ?+ | ?+ | ?+ | ?
 ✅ Supported\
 ? Unknown and subject to change at any time\
 \+ Tested in CI
+
+# How to interpret conflicting results
+
+While this package claims both to report almost all significant changes and to have no
+false positives and to never report anything that is unchanged, we make no claims about
+insignificant but nonzero changes. If the distributions of possible outcomes differ by
+some `0 < k < .05`, then we may report a change or nor report a change with no probability
+guarantees. Consequently, if you run repeated tests and find some runs report changes and
+others do not, you ma conclude with certainty both that there is a change and that it is not
+a significant change from a statistical perspective.
