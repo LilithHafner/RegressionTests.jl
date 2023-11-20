@@ -35,7 +35,7 @@ using Pkg
                     run(`git add .`)
                     run(`git commit -m "Initial content"`)
                     old_src = read(src_file, String)
-                    new_src = replace(old_src, "my_sum(x) = sum(x)" => "my_sum(x) = sum(Float64.(x))")
+                    new_src = replace(old_src, "my_sum(x) = sum(x)" => "my_sum(x) = foldl(+, x)")
                     write(src_file, new_src)
                     changes = runbenchmarks(project = ".") # Fail
                     @test !isempty(changes)
