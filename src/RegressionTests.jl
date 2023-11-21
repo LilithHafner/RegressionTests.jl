@@ -36,11 +36,11 @@ function report_changes(changes)
         for c in changes
             println(c)
         end
-        !c.is_increase
+        !any(c -> c.is_increase, changes)
     end
 end
 
-is_platform_supported() = VERSION >= v"1.6" && !Sys.iswindows() && !(VERSION.minor == 9 && Sys.isapple())
+is_platform_supported() = VERSION >= v"1.6" && !Sys.iswindows()
 
 function test(::Type{Bool}; skip_unsupported_platforms=false)
     if skip_unsupported_platforms && !is_platform_supported()
