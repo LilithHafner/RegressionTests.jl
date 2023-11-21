@@ -120,10 +120,11 @@ function runbenchmarks(;
     LibGit2.with(GitRepo(project)) do repo
         if (primary == "dev" || comparison == "dev")
             head0 = LibGit2.head(repo)
-            LibGit2.commit(repo, "regression tests: staged changes")
+            author = LibGit2.Signature("RegressionTests.jl", "RegressionTests@example.com")
+            LibGit2.commit(repo, "regression tests: staged changes"; author)
             LibGit2.add!(repo, ".")
             head1 = LibGit2.head(repo)
-            LibGit2.commit(repo, "regression tests: unstaged changes")
+            LibGit2.commit(repo, "regression tests: unstaged changes"; author)
             head2 = LibGit2.head(repo)
             LibGit2.branch!(repo, TEMP_BRANCH_NAME, "")
             LibGit2.head!(repo, head2)
