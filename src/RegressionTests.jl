@@ -118,8 +118,7 @@ function runbenchmarks(;
                     run(`git commit --allow-empty -m "regression tests: staged changes"`, io...)
                     run(`git add .`, io...)
                     run(`git commit --allow-empty -m "regression tests: unstaged changes"`, io...)
-                    run(`git checkout -b $(dev_branch[])`, io...)
-                    run(`git switch -`, io...)
+                    run(`git branch $(dev_branch[])`, io...)
                     run(`git reset HEAD\~`, io...)
                     run(`git reset --soft HEAD\~`, io...)
                 end
