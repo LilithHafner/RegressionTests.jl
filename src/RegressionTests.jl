@@ -5,6 +5,7 @@ using Random
 using Pkg, Markdown
 using Serialization
 using Compat
+using LibGit2
 
 # Callie
 using Serialization
@@ -62,7 +63,14 @@ are not supported.
 """
 test(; kw...) = test(Bool; kw...) || throw(RegressionTestFailure())
 
-branch_exists(branch) = success(`git rev-parse --verify $branch`)
+const TRANSIENT_BRANCH_NAME = "regression-tests/temp"
+function delete_temp_branch(;warn=false)
+    temp_branch = LibGit2.lookup_branch(repo, TRANSIENT_BRANCH_NAME)
+    if temp_branch !== nothing
+        warn && @warn "Transient branch cleanup failed last time"
+        LibGit2.delete_branch(repo, temp_branch)
+    end
+end
 
 """
     runbenchmarks()
@@ -105,42 +113,32 @@ function runbenchmarks(;
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
     datas = Vector{Vector{Float64}}(undef, length(revs))
 
-    dev_branch = Ref{Union{String, Nothing}}(nothing)
-    cd(project) do
+    delete_temp_branch(warn=true)
+
+    with(GitRepo(".")) do repo
+        if (primary == "dev" || comparison == "dev")
+            head0 = LibGit2.head(repo)
+            LibGit2.commit(repo, "regression tests: staged changes")
+            LibGit2.add!(repo, ".")
+            head1 = LibGit2.head(repo)
+            LibGit2.commit(repo, "regression tests: unstaged changes")
+            head2 = LibGit2.head(repo)
+            LibGit2.branch!(repo, dev_branch, "")
+            LibGit2.head!(repo, head2)
+            LibGit2.reset!(repo, LibGit2.GitHash(head1), LibGit2.Consts.RESET_MIXED)
+            LibGit2.reset!(repo, LibGit2.GitHash(head0), LibGit2.Consts.RESET_SOFT)
+        end
         for rev in (primary, comparison)
-            if rev == "dev"
-                if dev_branch[] === nothing
-                    while true
-                        dev_branch[] = "regression-tests/"*randstring(20)
-                        branch_exists(dev_branch[]) || break
-                    end
-                    io = (devnull, devnull, devnull)
-                    run(`git commit --allow-empty -m "regression tests: staged changes"`, io...)
-                    run(`git add .`, io...)
-                    run(`git commit --allow-empty -m "regression tests: unstaged changes"`, io...)
-                    run(`git branch $(dev_branch[])`, io...)
-                    run(`git reset HEAD\~`, io...)
-                    run(`git reset --soft HEAD\~`, io...)
-                end
-            elseif !branch_exists(rev) # Mostly for CI
-                iob = IOBuffer()
-                wait(run(`git remote`, devnull, iob; wait=false))
-                remotes = split(String(take!(iob)), '\n', keepempty=false)
-                if length(remotes) == 1
-                    run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
-                    run(ignorestatus(`git checkout $rev`))
-                    run(ignorestatus(`git switch - --detach`))
-                    println(branch_exists(rev) ? "Fetched" : "Failed to fetch", " $rev.")
-                end
+            if rev != "dev" && LibGit2.lookup_branch(repo, rev) === nothing # Mostly for CI
+                LibGit2.fetch(refspecs=[rev])
+                # run(ignorestatus(`git checkout $rev`))
+                # run(ignorestatus(`git switch - --detach`))
+                # println(branch_exists(rev) ? "Fetched" : "Failed to fetch", " $rev.")
             end
         end
     end
-    if primary == "dev"
-        primary = dev_branch[]
-    end
-    if comparison == "dev"
-        comparison = dev_branch[]
-    end
+    primary == "dev" && (primary = TRANSIENT_BRANCH_NAME)
+    comparison == "dev" && (comparison = TRANSIENT_BRANCH_NAME)
 
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
@@ -397,11 +395,7 @@ function runbenchmarks(;
     end
 
     # Delete the temporary branch
-    if dev_branch[] !== nothing
-        cd(project) do
-            run(`git branch -D $(dev_branch[])`)
-        end
-    end
+    delete_temp_branch(warn=false)
 
     return changes
 end
