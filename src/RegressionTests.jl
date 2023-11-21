@@ -62,6 +62,7 @@ are not supported.
 """
 test(; kw...) = test(Bool; kw...) || throw(RegressionTestFailure())
 
+const TEMP_BRANCH_NAME = "regression-tests-temp-u7yMsL3ZWZCfUXN5Fo0b"
 branch_exists(branch) = success(`git rev-parse --verify $branch`)
 
 """
@@ -105,29 +106,27 @@ function runbenchmarks(;
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
     datas = Vector{Vector{Float64}}(undef, length(revs))
 
-    dev_branch = Ref{Union{String, Nothing}}(nothing)
+    if branch_exists(TEMP_BRANCH_NAME)
+        @warn "Deleting existing branch $(TEMP_BRANCH_NAME)"
+        run(`git branch -D $(TEMP_BRANCH_NAME)`)
+    end
+
     cd(project) do
+        if primary == "dev" || comparison == "dev"
+            io = (devnull, devnull, devnull)
+            if Sys.islinux() # Because somehow --author doesn't work???
+                success(`git config --global user.name`) || success(`git config --local user.name`) || run(`git config --local user.name "RegressiionTests"`, io...)
+                success(`git config --global user.email`) || success(`git config --local user.email`) || run(`git config --local user.email "RegressionTests@example.com"`, io...)
+            end
+            run(`git commit --allow-empty -m "regression tests: staged changes" --author "RegressiionTests <RegressionTests@example.com>"`, io...)
+            run(`git add .`, io...)
+            run(`git commit --allow-empty -m "regression tests: unstaged changes" --author "RegressiionTests <RegressionTests@example.com>"`, io...)
+            run(`git branch $TEMP_BRANCH_NAME`, io...)
+            run(`git reset HEAD\~`, io...)
+            run(`git reset --soft HEAD\~`, io...)
+        end
         for rev in (primary, comparison)
-            if rev == "dev"
-                if dev_branch[] === nothing
-                    while true
-                        dev_branch[] = "regression-tests/"*randstring(20)
-                        branch_exists(dev_branch[]) || break
-                    end
-                    io = (devnull, devnull, devnull)
-                    if Sys.islinux() # Because somehow --author doesn't work???
-                        println("A")
-                        success(`git config --global user.name`) || success(`git config --local user.name`) || run(`git config --local user.name "RegressiionTests"`, io...)
-                        success(`git config --global user.email`) || success(`git config --local user.email`) || run(`git config --local user.email "RegressionTests@example.com"`, io...)
-                    end
-                    run(`git commit --allow-empty -m "regression tests: staged changes" --author "RegressiionTests <RegressionTests@example.com>"`, io...)
-                    run(`git add .`, io...)
-                    run(`git commit --allow-empty -m "regression tests: unstaged changes" --author "RegressiionTests <RegressionTests@example.com>"`, io...)
-                    run(`git branch $(dev_branch[])`, io...)
-                    run(`git reset HEAD\~`, io...)
-                    run(`git reset --soft HEAD\~`, io...)
-                end
-            elseif !branch_exists(rev) # Mostly for CI
+            if rev != "dev" && !branch_exists(rev) # Mostly for CI
                 iob = IOBuffer()
                 wait(run(`git remote`, devnull, iob; wait=false))
                 remotes = split(String(take!(iob)), '\n', keepempty=false)
@@ -140,12 +139,8 @@ function runbenchmarks(;
             end
         end
     end
-    if primary == "dev"
-        primary = dev_branch[]
-    end
-    if comparison == "dev"
-        comparison = dev_branch[]
-    end
+    primary == "dev" && (primary = TEMP_BRANCH_NAME)
+    comparison == "dev" && (comparison = TEMP_BRANCH_NAME)
 
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
@@ -402,9 +397,9 @@ function runbenchmarks(;
     end
 
     # Delete the temporary branch
-    if dev_branch[] !== nothing
+    if primary == TEMP_BRANCH_NAME || comparison == TEMP_BRANCH_NAME
         cd(project) do
-            run(`git branch -D $(dev_branch[])`)
+            run(`git branch -D $TEMP_BRANCH_NAME`)
         end
     end
 
