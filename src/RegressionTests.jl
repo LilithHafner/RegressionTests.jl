@@ -62,6 +62,8 @@ are not supported.
 """
 test(; kw...) = test(Bool; kw...) || throw(RegressionTestFailure())
 
+branch_exists(branch) = success(`git rev-parse --verify $branch`)
+
 """
     runbenchmarks()
 
@@ -103,27 +105,48 @@ function runbenchmarks(;
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
     datas = Vector{Vector{Float64}}(undef, length(revs))
 
+    dev_branch = Ref{Union{String, Nothing}}(nothing)
+    cd(project) do
+        for rev in (primary, comparison)
+            if rev == "dev"
+                if dev_branch[] === nothing
+                    while true
+                        dev_branch[] = "regression-tests/"*randstring(20)
+                        branch_exists(dev_branch[]) || break
+                    end
+                    io = (devnull, devnull, devnull)
+                    run(`git commit --allow-empty -m "regression tests: staged changes"`, io...)
+                    run(`git add .`, io...)
+                    run(`git commit --allow-empty -m "regression tests: unstaged changes"`, io...)
+                    run(`git checkout -b $(dev_branch[])`, io...)
+                    run(`git switch -`, io...)
+                    run(`git reset HEAD\~`, io...)
+                    run(`git reset --soft HEAD\~`, io...)
+                end
+            elseif !branch_exists(rev) # Mostly for CI
+                iob = IOBuffer()
+                wait(run(`git remote`, devnull, iob; wait=false))
+                remotes = split(String(take!(iob)), '\n', keepempty=false)
+                if length(remotes) == 1
+                    run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
+                    run(ignorestatus(`git checkout $rev`))
+                    run(ignorestatus(`git switch - --detach`))
+                    println(branch_exists(rev) ? "Fetched" : "Failed to fetch", " $rev.")
+                end
+            end
+        end
+    end
+    if primary == "dev"
+        primary = dev_branch[]
+    end
+    if comparison == "dev"
+        comparison = dev_branch[]
+    end
+
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
-        if rev == "dev"
-            Pkg.develop(path=project, io=devnull)
-        else
-            cd(project) do # Mostly for CI
-                if success(`git status`) && !success(`git rev-parse --verify $rev`)
-                    iob = IOBuffer()
-                    wait(run(`git remote`, devnull, iob; wait=false))
-                    remotes = split(String(take!(iob)), '\n', keepempty=false)
-                    if length(remotes) == 1
-                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
-                        run(ignorestatus(`git checkout $rev`))
-                        run(ignorestatus(`git switch - --detach`))
-                        println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
-                    end
-                end
-            end
-            Pkg.add(path=project, rev=rev, io=devnull)
-        end
+        Pkg.add(path=project, rev=rev, io=devnull)
         Pkg.instantiate(io=devnull)
     end
     function spawn_worker(worker, out, err)
@@ -371,6 +394,13 @@ function runbenchmarks(;
                     are_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=false),
                 )
             end
+        end
+    end
+
+    # Delete the temporary branch
+    if dev_branch[] !== nothing
+        cd(project) do
+            run(`git branch -D $(dev_branch[])`)
         end
     end
 
