@@ -63,12 +63,14 @@ are not supported.
 """
 test(; kw...) = test(Bool; kw...) || throw(RegressionTestFailure())
 
-const TRANSIENT_BRANCH_NAME = "regression-tests/temp"
-function delete_temp_branch(;warn=false)
-    temp_branch = LibGit2.lookup_branch(repo, TRANSIENT_BRANCH_NAME)
-    if temp_branch !== nothing
-        warn && @warn "Transient branch cleanup failed last time"
-        LibGit2.delete_branch(repo, temp_branch)
+const TEMP_BRANCH_NAME = "regression-tests/temp"
+function delete_temp_branch(project; warn=false)
+    with(GitRepo(project)) do repo
+        temp_branch = LibGit2.lookup_branch(repo, TEMP_BRANCH_NAME)
+        if temp_branch !== nothing
+            warn && @warn "Transient branch cleanup failed last time"
+            LibGit2.delete_branch(repo, temp_branch)
+        end
     end
 end
 
@@ -113,9 +115,9 @@ function runbenchmarks(;
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
     datas = Vector{Vector{Float64}}(undef, length(revs))
 
-    delete_temp_branch(warn=true)
+    delete_temp_branch(project, warn=true)
 
-    with(GitRepo(".")) do repo
+    with(GitRepo(project)) do repo
         if (primary == "dev" || comparison == "dev")
             head0 = LibGit2.head(repo)
             LibGit2.commit(repo, "regression tests: staged changes")
@@ -123,7 +125,7 @@ function runbenchmarks(;
             head1 = LibGit2.head(repo)
             LibGit2.commit(repo, "regression tests: unstaged changes")
             head2 = LibGit2.head(repo)
-            LibGit2.branch!(repo, dev_branch, "")
+            LibGit2.branch!(repo, TEMP_BRANCH_NAME, "")
             LibGit2.head!(repo, head2)
             LibGit2.reset!(repo, LibGit2.GitHash(head1), LibGit2.Consts.RESET_MIXED)
             LibGit2.reset!(repo, LibGit2.GitHash(head0), LibGit2.Consts.RESET_SOFT)
@@ -137,8 +139,8 @@ function runbenchmarks(;
             end
         end
     end
-    primary == "dev" && (primary = TRANSIENT_BRANCH_NAME)
-    comparison == "dev" && (comparison = TRANSIENT_BRANCH_NAME)
+    primary == "dev" && (primary = TEMP_BRANCH_NAME)
+    comparison == "dev" && (comparison = TEMP_BRANCH_NAME)
 
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
@@ -395,7 +397,7 @@ function runbenchmarks(;
     end
 
     # Delete the temporary branch
-    delete_temp_branch(warn=false)
+    delete_temp_branch(project)
 
     return changes
 end
