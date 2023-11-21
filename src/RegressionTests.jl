@@ -115,7 +115,7 @@ function runbenchmarks(;
                         branch_exists(dev_branch[]) || break
                     end
                     io = (devnull, devnull, devnull)
-                    run(`git commit --allow-empty -m "regression tests: staged changes"`, io...)
+                    run(`git commit --allow-empty -m "regression tests: staged changes"`)
                     run(`git add .`, io...)
                     run(`git commit --allow-empty -m "regression tests: unstaged changes"`, io...)
                     run(`git branch $(dev_branch[])`, io...)
