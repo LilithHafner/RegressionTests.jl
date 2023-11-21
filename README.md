@@ -120,7 +120,7 @@ Julia version | Linux | MacOS | Windows | Other
 [1.1, 1.5]    | ⚠️   | ⚠️  | ⚠️  | ⚠️
 1.6           | ✅+ | ✅+ | ⚠️+ | ?
 [1.7, stable) | ✅  | ✅  | ⚠️  | ?
-stable        | ✅+ | ⚠️+ | ⚠️+ | ?
+stable        | ✅+ | ✅+ | ⚠️+ | ?
 nightly       | ?+ | ?+ | ?+ | ?
 
 ❌ Not supported\
