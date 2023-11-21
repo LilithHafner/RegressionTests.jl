@@ -65,11 +65,11 @@ test(; kw...) = test(Bool; kw...) || throw(RegressionTestFailure())
 
 const TEMP_BRANCH_NAME = "regression-tests/temp"
 function delete_temp_branch(project; warn=false)
-    with(GitRepo(project)) do repo
+    LibGit2.with(GitRepo(project)) do repo
         temp_branch = LibGit2.lookup_branch(repo, TEMP_BRANCH_NAME)
         if temp_branch !== nothing
             warn && @warn "Transient branch cleanup failed last time"
-            LibGit2.delete_branch(repo, temp_branch)
+            LibGit2.delete_branch(temp_branch)
         end
     end
 end
@@ -117,7 +117,7 @@ function runbenchmarks(;
 
     delete_temp_branch(project, warn=true)
 
-    with(GitRepo(project)) do repo
+    LibGit2.with(GitRepo(project)) do repo
         if (primary == "dev" || comparison == "dev")
             head0 = LibGit2.head(repo)
             LibGit2.commit(repo, "regression tests: staged changes")
