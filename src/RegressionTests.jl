@@ -117,10 +117,10 @@ function runbenchmarks(;
                     io = (devnull, devnull, devnull)
                     if Sys.islinux() # Because somehow --author doesn't work???
                         println("A")
-                        success(`git config --global user.name`) || success(`git config --local user.name`) || run(`git config --local user.name "RegressiionTests"`)
-                        success(`git config --global user.email`) || success(`git config --local user.email`) || run(`git config --local user.email "RegressionTests@example.com"`)
+                        success(`git config --global user.name`) || success(`git config --local user.name`) || run(`git config --local user.name "RegressiionTests"`, io...)
+                        success(`git config --global user.email`) || success(`git config --local user.email`) || run(`git config --local user.email "RegressionTests@example.com"`, io...)
                     end
-                    run(`git commit --allow-empty -m "regression tests: staged changes" --author "RegressiionTests <RegressionTests@example.com>"`)
+                    run(`git commit --allow-empty -m "regression tests: staged changes" --author "RegressiionTests <RegressionTests@example.com>"`, io...)
                     run(`git add .`, io...)
                     run(`git commit --allow-empty -m "regression tests: unstaged changes" --author "RegressiionTests <RegressionTests@example.com>"`, io...)
                     run(`git branch $(dev_branch[])`, io...)
