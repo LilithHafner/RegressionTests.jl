@@ -36,7 +36,7 @@ function report_changes(changes)
         for c in changes
             println(c)
         end
-        !c.is_increase
+        !any(c -> c.is_increase, changes)
     end
 end
 
