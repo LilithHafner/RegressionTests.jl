@@ -267,7 +267,7 @@ function runbenchmarks(;
 
     # Process management /\
     # What's actually going on \/
-    println("WWWW")
+    println("WWWWW")
     inds = eachindex(revs)
     print("waiting for preliminary results...")
     filter = nothing
