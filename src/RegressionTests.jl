@@ -95,8 +95,12 @@ function runbenchmarks(;
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
         script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
-        # --compiled-modules=no is a workaround for https://github.com/JuliaLang/julia/issues/52265
-        commands[i] = `$julia_exe --compiled-modules=no --project=$(projects[i]) --handle-signals=no -e $script`
+        commands[i] = if VERSION < v"1.10.0-alpha1"
+            # --compiled-modules=no is a workaround for https://github.com/JuliaLang/julia/issues/52265
+            `$julia_exe --compiled-modules=no --project=$(projects[i]) --handle-signals=no -e $script`
+        else
+            `$julia_exe --project=$(projects[i]) --handle-signals=no -e $script`
+        end
     end
 
     lens = 45, 75, 120, 300
