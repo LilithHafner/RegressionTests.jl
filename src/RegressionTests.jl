@@ -48,8 +48,9 @@ function test(::Type{Bool}; skip_unsupported_platforms=false)
         return true
     end
     println("XXXX")
-    report_changes(runbenchmarks(project=dirname(pwd())))
+    res = report_changes(runbenchmarks(project=dirname(pwd())))
     println("YYYY")
+    res
 end
 struct RegressionTestFailure <: Exception end
 
