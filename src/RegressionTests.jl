@@ -47,7 +47,9 @@ function test(::Type{Bool}; skip_unsupported_platforms=false)
         @warn "Skipping regression tests on unsupported platform"
         return true
     end
+    println("XXXX")
     report_changes(runbenchmarks(project=dirname(pwd())))
+    println("YYYY")
 end
 struct RegressionTestFailure <: Exception end
 
@@ -81,7 +83,7 @@ function runbenchmarks(;
         comparison = "main",
         workers = 15,#Sys.CPU_THREADS,
         )
-
+    println("ZZZZ")
     commands = Vector{Cmd}(undef, workers)
     projects = [tempname() for _ in 1:workers]
     channels = [tempname() for _ in 1:workers]
@@ -115,7 +117,7 @@ function runbenchmarks(;
         @warn "Deleting existing branch $(TEMP_BRANCH_NAME)"
         run(`git branch -D $(TEMP_BRANCH_NAME)`)
     end
-
+    println("QQQQ")
     cd(project) do
         if primary == "dev" || comparison == "dev"
             io = (devnull, devnull, devnull)
@@ -144,6 +146,7 @@ function runbenchmarks(;
             end
         end
     end
+    println("HHHH")
     primary == "dev" && (primary = TEMP_BRANCH_NAME)
     comparison == "dev" && (comparison = TEMP_BRANCH_NAME)
 
@@ -263,7 +266,7 @@ function runbenchmarks(;
 
     # Process management /\
     # What's actually going on \/
-
+    println("WWWW")
     inds = eachindex(revs)
     print("waiting for preliminary results...")
     filter = nothing

@@ -3,14 +3,20 @@ using Test
 using Aqua
 using Pkg
 
+println("CCC")
+
 @testset "RegressionTests.jl" begin
     @testset "Code quality (Aqua.jl)" begin
+        println("DDD")
         Aqua.test_all(RegressionTests, deps_compat=false)
+        println("EEE")
     end
 
     # TODO: make this work when it comes after "Example usage" as well.
     @testset "Regression tests" begin
+        println("AAA")
         RegressionTests.test(skip_unsupported_platforms=true)
+        println("BBB")
     end
 
     if RegressionTests.is_platform_supported()
