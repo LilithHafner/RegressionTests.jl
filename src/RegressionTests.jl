@@ -76,7 +76,7 @@ function runbenchmarks(;
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         primary = "dev",
         comparison = "main",
-        workers = 15,#Sys.CPU_THREADS,
+        workers = 16,#Sys.CPU_THREADS,
         startup_file = Base.JLOptions().startupfile == 1 ? "yes" : "no",
         )
 
@@ -93,10 +93,15 @@ function runbenchmarks(;
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
         script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
-        commands[i] = `$julia_exe --startup-file=$startup_file --project=$(projects[i]) --handle-signals=no -e $script`
+        commands[i] = if VERSION < v"1.10.0-alpha1"
+            # --compiled-modules=no is a workaround for https://github.com/JuliaLang/julia/issues/52265
+            `$julia_exe --compiled-modules=no --startup-file=$startup_file --project=$(projects[i]) --handle-signals=no -e $script`
+        else
+            `$julia_exe --startup-file=$startup_file --project=$(projects[i]) --handle-signals=no -e $script`
+        end
     end
 
-    lens = 45, 75, 120, 300
+    lens = 8, 16, 32, 64
     revs = shuffle!(vcat(falses(lens[1]), trues(lens[1])))
     # TODO take a random shuffle that fails the first "plausibly different" test
     # so that things that are literally equal will never make it past the first round
@@ -266,7 +271,7 @@ function runbenchmarks(;
 
         i == 1 && (original_runtime_metadata = copy(runtime_metadatas[1]))
 
-        plausibly_different = [are_different(revs, [datas[i][j] for i in eachindex(revs, datas)]) for j in eachindex(datas[1])]
+        plausibly_different = [are_very_different(revs, [datas[i][j] for i in eachindex(revs, datas)]) for j in eachindex(datas[1])]
 
         md = Int[]
         old_filter = filter === nothing ? trues(Int((length(last(runtime_metadatas))+length(plausibly_different))/2)) : filter
@@ -368,8 +373,8 @@ function runbenchmarks(;
                     occurrences[m],
                     [datas[i][changes_i] for i in eachindex(datas) if !revs[i]],
                     [datas[i][changes_i] for i in eachindex(datas) if revs[i]],
-                    are_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=true),
-                    are_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=false),
+                    are_very_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=true),
+                    are_very_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=false),
                 )
             end
         end
@@ -596,6 +601,25 @@ function are_different(tags::BitVector, data; increase::Union{Bool, Nothing}=not
     return true
 end
 
+function are_very_different(tags::BitVector, data; increase::Union{Bool, Nothing}=nothing)
+    extremas = (nothing, nothing)
+    for (t, x) in zip(tags, data)
+        e = extremas[t+1]
+        extremas = Base.setindex(extremas, if e === nothing
+            (x, x)
+        else
+            lo, hi = e
+            x < lo && (lo = x)
+            x > hi && (hi = x)
+            (lo, hi)
+        end, t+1)
+    end
+    any(isnothing, extremas) && return false # Maybe error?
+    f, t = extremas
+    delta = min(f[2] - f[1], t[2] - t[1])
+    f[2] + delta < t[1] && increase !== true ||
+    t[2] + delta < f[1] && increase !== false
+end
 
 # Callie
 

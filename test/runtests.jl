@@ -8,6 +8,17 @@ using Pkg
         Aqua.test_all(RegressionTests, deps_compat=false)
     end
 
+    @testset "Correctness" begin
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 100:100:300))
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103))
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103), increase=true)
+        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103), increase=false)
+        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), 1:6)
+        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), (1:6) .+ 10000)
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(fill(pi, 3), fill(nextfloat(float(pi)), 3)))
+        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(fill(float(pi), 6)))
+    end
+
     # TODO: make this work when it comes after "Example usage" as well.
     @testset "Regression tests" begin
         RegressionTests.test(skip_unsupported_platforms=true)
@@ -39,11 +50,7 @@ using Pkg
                     write(src_file, new_src)
                     changes = runbenchmarks(project = ".") # Fail
                     @test !isempty(changes)
-
-                    # This is flakey because there are lots of subtle performance impacts of any code change...
-                    # TODO: make this work somehow, or at least ensure that we never wrongly cross the 0-1 threshold
-                    # @test !any(occursin("my_prod", c.expr) for c in changes) # Those didn't change
-
+                    @test !any(occursin("my_prod", c.expr) for c in changes) # Those didn't change [This is the a false positive test]
                     @test any(occursin("my_sum", c.expr) for c in changes) # This did change
                     println.(changes)
                     run(`git add $src_file`)
