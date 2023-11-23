@@ -610,7 +610,7 @@ function are_very_different(tags::BitVector, data; increase::Union{Bool, Nothing
     end
     any(isnothing, extremas) && return false # Maybe error?
     f, t = extremas
-    delta = (f[2] - f[1]) + (t[2] - t[1])
+    delta = min(f[2] - f[1], t[2] - t[1])
     f[2] + delta < t[1] && increase !== true ||
     t[2] + delta < f[1] && increase !== false
 end

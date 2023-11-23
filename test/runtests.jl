@@ -9,6 +9,7 @@ using Pkg
     end
 
     @testset "Correctness" begin
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 100:100:300))
         @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103))
         @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103), increase=true)
         @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103), increase=false)
