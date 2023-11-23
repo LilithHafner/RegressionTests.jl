@@ -77,6 +77,7 @@ function runbenchmarks(;
         primary = "dev",
         comparison = "main",
         workers = 15,#Sys.CPU_THREADS,
+        startup_file = Base.JLOptions().startupfile == 1 ? "yes" : "no",
         )
 
     commands = Vector{Cmd}(undef, workers)
@@ -92,7 +93,7 @@ function runbenchmarks(;
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
         script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
-        commands[i] = `$julia_exe --project=$(projects[i]) --handle-signals=no -e $script`
+        commands[i] = `$julia_exe --startup-file=$startup_file --project=$(projects[i]) --handle-signals=no -e $script`
     end
 
     lens = 45, 75, 120, 300
