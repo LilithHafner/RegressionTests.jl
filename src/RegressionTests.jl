@@ -70,7 +70,13 @@ the benchmarks in `bench/runbenchmarks.jl`.
 
 There are some keyword arguments, but they are not public.
 """
-function runbenchmarks(;
+function runbenchmarks(args...; kw...)
+    res = try_runbenchmarks(; kw..., args...)
+    res isa Vector{Change} || throw(res) # InterruptException or ProcessFailedException
+    res
+end
+
+function try_runbenchmarks(;
         project = pwd(), # run from project directory
         bench_project = joinpath(project, "bench"),
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
@@ -188,6 +194,7 @@ function runbenchmarks(;
                             # Yay! we got a failure in the process that is already
                             # piped into stdout and stderr
                             # 1 and worker are dead and all others have been `nice_kill`ed
+                            return ProcessFailedException(processes[1])
                         else
                             # give up on waiting
                             nice_kill(1)
@@ -202,9 +209,8 @@ function runbenchmarks(;
                             @assert p.out === p.err
                             print(String(take!(p.err)))
                             println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+                            return ProcessFailedException(p)
                         end
-                        # _wait(workers-1) # `worker` is already popped from the worker pool
-                        return true # failure
                     end
 
                     store_results(work[worker], worker) # Fast
@@ -232,11 +238,11 @@ function runbenchmarks(;
             if x isa InterruptException
                 nice_kill.(1:workers)
                 # _wait(workers-1) # Many workers could have already been waited for.
-                return true # failure
+                return x # failure
             end
             rethrow() # Unexpected error (probably RegressionTests.jl's fault)
         end
-        false # success
+        return nothing # success
     end
 
     # Process management /\
@@ -251,14 +257,15 @@ function runbenchmarks(;
         num_completed = Ref(0)
         p = Pkg.project().path
         try
-            do_work(inds) do j
+            result = do_work(inds) do j
                 num_completed[] += 1
                 num_completed[] == 1 && i == 1 && println(rpad("\r$(sum(length, datas[j])) tracked results", 34))
                 if stdout isa Base.TTY
                     print("\r$(num_completed[]) / $(length(inds))")
                     flush(stdout)
                 end
-            end && return nothing # do_work failed
+            end
+            result === nothing || return result # do_work failed
         finally
             Pkg.activate(p, io=devnull) # More for the return than for errors.
         end
@@ -383,8 +390,9 @@ function runbenchmarks(;
 end
 
 function runbenchmarks_pkg()
-    changes = runbenchmarks(project = dirname(Pkg.project().path))
-    changes === nothing && return nothing
+    changes = try_runbenchmarks(project = dirname(Pkg.project().path))
+    # try_runbenchmarks does its own error reporting. and another stacktrace won't help.
+    changes isa Vector{Change} || return nothing
     push!(RESULTS, changes)
     report_changes(changes)
     isempty(changes) || println("View full results with RegressionTests.RESULTS[end]")
