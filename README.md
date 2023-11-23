@@ -12,7 +12,7 @@ Regression tests without false positives
 
 # Stability: Experimental
 
-This package is buggy, examples are only partially tested, CI fails, and the API is under active development.
+This package is buggy, examples are only partially tested, and the API is under active development.
 
 # Usage instructions by example (a tutorial)
 
