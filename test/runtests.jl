@@ -9,11 +9,14 @@ using Pkg
     end
 
     @testset "Correctness" begin
-        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), 1:6)
-        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), 1:6, increase=true)
-        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), 1:6, increase=false)
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 100:100:300))
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103))
+        @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103), increase=true)
+        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(1:3, 101:103), increase=false)
+        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), 1:6)
         @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), (1:6) .+ 10000)
         @test RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(fill(pi, 3), fill(nextfloat(float(pi)), 3)))
+        @test !RegressionTests.are_very_different(vcat(trues(3), falses(3)), vcat(fill(float(pi), 6)))
     end
 
     # TODO: make this work when it comes after "Example usage" as well.
