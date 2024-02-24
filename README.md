@@ -90,7 +90,7 @@ We make the following statistical claims for each tracked value `t`
 - If the distributions of `t` is independent of the version being tested, then this will
   report a change with probability approximately `1e-10`.
 - If the distributions of `t` on the two tested versions differ[^1] by at least `k ≥ .05`,
-  then this will report a change with probability `≤ 0.95`[^2].
+  then this will report a change with probability `≥ 0.95`[^2].
 - All reported changes are tagged as either increases, decreases, or both.
 - If all percentiles of `t` are on the primary version are greater than or equal to their
   corresponding values on the comparison version, then `t` will be incorrectly reported as a
