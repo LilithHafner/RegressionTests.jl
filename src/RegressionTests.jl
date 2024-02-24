@@ -12,7 +12,7 @@ using Serialization
 
 # Caller
 export runbenchmarks
-VERSION >= v"1.11.0-DEV.469" && eval(Expr(:public, :test))
+VERSION >= v"1.11.0-DEV.469" && eval(Expr(:public, :test, :trackable))
 
 
 # Callie
@@ -113,7 +113,7 @@ function try_runbenchmarks(;
     # so that things that are literally equal will never make it past the first round
     static_metadatas = Vector{Vector{Tuple{Symbol, Int, String}}}(undef, length(revs))
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
-    datas = Vector{Vector{Float64}}(undef, length(revs))
+    datas = Vector{Vector{Trackable}}(undef, length(revs))
 
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
@@ -275,6 +275,7 @@ function try_runbenchmarks(;
         allequal(static_metadatas) || error("Static metadata mismatch")
         allequal(runtime_metadatas) || error("Runtime metadata mismatch")
         allequal(length.(datas)) || error("Data length mismatch")
+        allequal((typeof.(data) for data in datas)) || error("Data type mismatch")
 
         i == 1 && (original_runtime_metadata = copy(runtime_metadatas[1]))
 
@@ -357,8 +358,8 @@ function try_runbenchmarks(;
         m > 0 && (occurrences[m] += 1)
     end
     counts = zeros(Int, length(static_metadatas))
-    changes = Vector{Change}(undef, length(datas[1]))
-    changes_i = 0
+    changes = Change[]
+    datas_i = 0
     skip = 0
     for m in original_runtime_metadata
         m > 0 && (counts[m] += 1)
@@ -373,16 +374,35 @@ function try_runbenchmarks(;
         elseif m > 0
             if pop!(filter)
                 # A change!
-                changes_i += 1
-                changes[changes_i] = Change(
-                    first(static_metadatas)[m]...,
-                    counts[m],
-                    occurrences[m],
-                    [datas[i][changes_i] for i in eachindex(datas) if !revs[i]],
-                    [datas[i][changes_i] for i in eachindex(datas) if revs[i]],
-                    are_very_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=true),
-                    are_very_different(revs, [datas[i][changes_i] for i in eachindex(datas)], increase=false),
-                )
+                datas_i += 1
+                x = first(datas)[datas_i]
+                if x isa Real # TODO: remove this duplication:
+                    push!(changes, Change(
+                        first(static_metadatas)[m]...,
+                        counts[m],
+                        occurrences[m],
+                        Symbol(""),
+                        [datas[i][datas_i] for i in eachindex(datas) if !revs[i]],
+                        [datas[i][datas_i] for i in eachindex(datas) if revs[i]],
+                        are_very_different(revs, [datas[i][datas_i] for i in eachindex(datas)], increase=true),
+                        are_very_different(revs, [datas[i][datas_i] for i in eachindex(datas)], increase=false),
+                    ))
+                else
+                    for key in keys(x)
+                        if are_very_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)])
+                            push!(changes, Change(
+                                first(static_metadatas)[m]...,
+                                counts[m],
+                                occurrences[m],
+                                key,
+                                [datas[i][datas_i][key] for i in eachindex(datas) if !revs[i]],
+                                [datas[i][datas_i][key] for i in eachindex(datas) if revs[i]],
+                                are_very_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)], increase=true),
+                                are_very_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)], increase=false),
+                            ))
+                        end
+                    end
+                end
             end
         end
     end
@@ -406,6 +426,7 @@ struct Change
     expr::String
     occurrence::Int
     occurrences::Int
+    label::Symbol
     primary_data::Vector{Float64}
     comparison_data::Vector{Float64}
     is_increase::Bool
@@ -455,7 +476,7 @@ function hist(io::IO, primary::Vector{Float64}, comparison::Vector{Float64})
             elseif isnan(x)
                 bins+6
             else
-                4 + min(bins-1, floor(Int, (f(x)-lo) / (hi-lo) * (bins)))
+                4 + min(bins-1, hi == lo ? bins ÷ 2 : floor(Int, (f(x)-lo) / (hi-lo) * (bins)))
             end
             counts[i] += 1
         end
@@ -505,6 +526,7 @@ function Base.show(io::IO, c::Change) # TODO: check the impact on load time
     println(io, postprocess_expr_string(c.expr))
     println(io, "@ ", c.file, ":", c.line)
     c.occurrence == c.occurrences == 1 || println(io, "occurrence: ", c.occurrence, "/", c.occurrences)
+    c.label === Symbol("") || println(io, "label: ", c.label)
     hist(io, c.primary_data, c.comparison_data)
 end
 
@@ -609,7 +631,9 @@ function are_different(tags::BitVector, data; increase::Union{Bool, Nothing}=not
     return true
 end
 
-function are_very_different(tags::BitVector, data; increase::Union{Bool, Nothing}=nothing)
+are_very_different(tags::BitVector, data) =
+    any(are_very_different(tags, getindex.(data, key)) for key in keys(first(data)))
+function are_very_different(tags::BitVector, data::AbstractVector{<:Real}; increase::Union{Bool, Nothing}=nothing)
     extremas = (nothing, nothing)
     for (t, x) in zip(tags, data)
         e = extremas[t+1]
@@ -635,7 +659,8 @@ const FILTER = Ref{Union{Nothing, BitVector}}(nothing)
 const STATIC_METADATA = Tuple{Symbol, Int, String}[]
 const GROUP_ID = Ref(0)
 const RUNTIME_METADATA = Int[]
-const DATA = Float64[]
+const Trackable = Union{Float64, NamedTuple{<:Any, <:NTuple{<:Any, Float64}}}
+const DATA = Trackable[]
 is_active() = FILTER[] === nothing || pop!(FILTER[])
 
 """
@@ -702,7 +727,7 @@ macro track(expr)
     quote
         let
             if is_active()
-                x::Float64 = Float64($(esc(expr)))
+                x::Trackable = trackable($(esc(expr)))
                 push!(RUNTIME_METADATA, $i)
                 push!(DATA, x)
                 nothing
@@ -710,5 +735,16 @@ macro track(expr)
         end
     end
 end
+
+"""
+    trackable(x) -> Union{Float64, NamedTuple{<:Any, NTuple{<:Any, Float64}}}
+
+Convert an object into a `Float64` or `NamedTuple` of `Float64`s for tracking. Called
+automatically by `@track expr` on the result of `expr`.
+
+Define new methods for this function to track non-Real types.
+"""
+trackable(x::Real) = Float64(x)
+trackable(t::Tuple) = NamedTuple(Symbol(i) => Float64(t[i]) for i in eachindex(t))
 
 end

@@ -10,6 +10,9 @@ Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
+[weakdeps]
+Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
+
 [compat]
 Compat = "3.42, 4"
 Markdown = "<0.0.1, 1"
@@ -17,6 +20,9 @@ Pkg = "<0.0.1, 1"
 Random = "<0.0.1, 1"
 Serialization = "<0.0.1, 1"
 julia = "1"
+
+[extensions]
+CharimarksRegressionTestsExt = ["Chairmarks"]
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"

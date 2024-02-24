@@ -34,10 +34,13 @@ for n in 1:50
         @track Chairmarks.median(res).time
         @track Chairmarks.mean(res).time
     end
+
+    # This is the same as the previous 6 lines, but a bit more thourough and more concise:
+    # @track @be n rand
 end
 
 for k in 1:1_000_000
-    # 1e-10 false positivity * 4e6 tracked values => 
+    # 1e-10 false positivity * 4e6 tracked values =>
     # this should cause CI to fail at most 1/2500 times.
     @track k
     @track rand()
