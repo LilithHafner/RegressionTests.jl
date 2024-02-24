@@ -637,6 +637,25 @@ const GROUP_ID = Ref(0)
 const RUNTIME_METADATA = Int[]
 const DATA = Float64[]
 is_active() = FILTER[] === nothing || pop!(FILTER[])
+
+"""
+    @group expr
+
+Group multiple tracked values together with setup code so that they may all be omitted if
+the first several trials do not indicate a plausible change in any of the grouped tracked
+values.
+
+# Example
+
+```julia
+@group begin
+    x = rand(100)
+    sm = sum(x)
+    @track abs(sm - foldl(+, x))
+    @track sm / mean(x)
+end
+```
+"""
 macro group(expr)
     i = (GROUP_ID[] -= 1)
     quote
@@ -650,6 +669,32 @@ macro group(expr)
         end
     end
 end
+
+"""
+    @track expr
+
+Track the return value of `expr` for regressions. `expr` must evaluate to a number that can
+be converted to a `Float64`.
+
+If the first several trials do not indicate a plausible change in the tracked value then
+subsequent trials may skip evaluating `expr`. Do not put code in an `@track` expression that
+has side effects needed later on.
+
+Should be used in or included by a `runbenchmarks.jl` file.
+
+### Examples
+
+```julia
+@track begin
+    x = rand(100)
+    abs(sum(x) - foldl(+, x))
+end
+
+y = rand(100)
+@track abs(sum(y) - foldl(+, y))
+@track sum(y) / mean(y)
+```
+"""
 macro track(expr)
     # string(expr) causes O(n^2) macro expansion time for deeply nested `@task`s
     push!(STATIC_METADATA, (__source__.file, __source__.line, string(expr)))
