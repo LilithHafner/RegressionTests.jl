@@ -101,9 +101,9 @@ function try_runbenchmarks(;
         script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
         commands[i] = if VERSION < v"1.10.0-alpha1"
             # --compiled-modules=no is a workaround for https://github.com/JuliaLang/julia/issues/52265
-            `$julia_exe --compiled-modules=no --startup-file=$startup_file --project=$(projects[i]) --handle-signals=no -e $script`
+            `$julia_exe --compiled-modules=no --startup-file=$startup_file --project=$(projects[i]) -e $script`
         else
-            `$julia_exe --startup-file=$startup_file --project=$(projects[i]) --handle-signals=no -e $script`
+            `$julia_exe --startup-file=$startup_file --project=$(projects[i]) -e $script`
         end
     end
 
