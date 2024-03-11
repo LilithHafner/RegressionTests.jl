@@ -1,7 +1,7 @@
 name = "RegressionTests"
 uuid = "2cca1867-674a-4323-b559-fc77c0bbdb31"
 authors = ["Lilith Orion Hafner <lilithhafner@gmail.com> and contributors"]
-version = "0.0.5"
+version = "0.0.6"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
