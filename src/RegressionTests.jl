@@ -84,6 +84,7 @@ function try_runbenchmarks(;
         comparison = "main",
         workers = 16,#Sys.CPU_THREADS,
         startup_file = Base.JLOptions().startupfile == 1 ? "yes" : "no",
+        are_different = are_very_different,
         )
 
     commands = Vector{Cmd}(undef, workers)
@@ -279,7 +280,7 @@ function try_runbenchmarks(;
 
         i == 1 && (original_runtime_metadata = copy(runtime_metadatas[1]))
 
-        plausibly_different = [are_very_different(revs, [datas[i][j] for i in eachindex(revs, datas)]) for j in eachindex(datas[1])]
+        plausibly_different = [are_different(revs, [datas[i][j] for i in eachindex(revs, datas)]) for j in eachindex(datas[1])]
 
         md = Int[]
         old_filter = filter === nothing ? trues(Int((length(last(runtime_metadatas))+length(plausibly_different))/2)) : filter
@@ -386,12 +387,12 @@ function try_runbenchmarks(;
                         Symbol(""),
                         [datas[i][datas_i] for i in eachindex(datas) if !revs[i]],
                         [datas[i][datas_i] for i in eachindex(datas) if revs[i]],
-                        are_very_different(revs, [datas[i][datas_i] for i in eachindex(datas)], increase=true),
-                        are_very_different(revs, [datas[i][datas_i] for i in eachindex(datas)], increase=false),
+                        are_different(revs, [datas[i][datas_i] for i in eachindex(datas)], increase=true),
+                        are_different(revs, [datas[i][datas_i] for i in eachindex(datas)], increase=false),
                     ))
                 else
                     for key in keys(x)
-                        if are_very_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)])
+                        if are_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)])
                             push!(changes, Change(
                                 first(static_metadatas)[m]...,
                                 counts[m],
@@ -399,8 +400,8 @@ function try_runbenchmarks(;
                                 key,
                                 [datas[i][datas_i][key] for i in eachindex(datas) if !revs[i]],
                                 [datas[i][datas_i][key] for i in eachindex(datas) if revs[i]],
-                                are_very_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)], increase=true),
-                                are_very_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)], increase=false),
+                                are_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)], increase=true),
+                                are_different(revs, [datas[i][datas_i][key] for i in eachindex(datas)], increase=false),
                             ))
                         end
                     end
