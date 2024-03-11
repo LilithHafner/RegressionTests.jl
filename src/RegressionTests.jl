@@ -42,12 +42,12 @@ end
 
 is_platform_supported() = VERSION >= v"1.9" && !Sys.iswindows()
 
-function test(::Type{Bool}; skip_unsupported_platforms=false)
+function test(::Type{Bool}; skip_unsupported_platforms=false, kws...)
     if skip_unsupported_platforms && !is_platform_supported()
         @warn "Skipping regression tests on unsupported platform"
         return true
     end
-    report_changes(runbenchmarks(project=dirname(pwd())))
+    report_changes(runbenchmarks(project=dirname(pwd()), kws...))
 end
 struct RegressionTestFailure <: Exception end
 
