@@ -353,11 +353,13 @@ function try_runbenchmarks(;
     # Note literal equality is fine because we use a stable sort and the order is random
 
     # Make regressions
-    occurrences = zeros(Int, length(static_metadatas))
+    static_metatdata_length = only(unique(length.(static_metadatas)))
+    occurrences = zeros(Int, static_metatdata_length)
+
     for m in original_runtime_metadata
         m > 0 && (occurrences[m] += 1)
     end
-    counts = zeros(Int, length(static_metadatas))
+    counts = zeros(Int, static_metatdata_length)
     changes = Change[]
     datas_i = 0
     skip = 0
