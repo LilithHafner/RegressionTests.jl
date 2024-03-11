@@ -260,7 +260,7 @@ function try_runbenchmarks(;
         try
             result = do_work(inds) do j
                 num_completed[] += 1
-                num_completed[] == 1 && i == 1 && println(rpad("\r$(sum(length, datas[j])) tracked results", 34))
+                num_completed[] == 1 && i == 1 && println(rpad("\r$(sum(length, datas[j], init=0)) tracked results", 34))
                 if stdout isa Base.TTY
                     print("\r$(num_completed[]) / $(length(inds))")
                     flush(stdout)
