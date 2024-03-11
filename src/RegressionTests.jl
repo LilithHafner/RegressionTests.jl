@@ -98,7 +98,7 @@ function try_runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        script = "let; using RegressionTests, Serialization; RegressionTests.FILTER[] = deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests, Serialization; serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
+        script = "let; using RegressionTests; RegressionTests.FILTER[] = RegressionTests.deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests; RegressionTests.serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
         commands[i] = if VERSION < v"1.10.0-alpha1"
             # --compiled-modules=no is a workaround for https://github.com/JuliaLang/julia/issues/52265
             `$julia_exe --compiled-modules=no --startup-file=$startup_file --project=$(projects[i]) -e $script`
