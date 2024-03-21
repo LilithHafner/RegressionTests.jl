@@ -122,10 +122,11 @@ function try_runbenchmarks(;
         new_project = tempname()
         cp(project, new_project)
         cd(new_project) do
-            run(`git init`)
+            run(`git config user.name "RegressionTests.jl"`) # This is local to the temp project
+            run(`git config user.email "lilithhafnerbot@gmail.com"`)
             run(`git checkout -b $dev_branch`)
             run(`git add .`)
-            run(`git commit --allow-empty -m "Commit changes in workind directory to emulate dev" --author="RegressionTests.jl <lilithhafnerbot@gmail.com>"`)
+            run(`git commit --allow-empty -m "Commit changes in workind directory to emulate dev"`)
         end
 
         project = new_project
