@@ -82,7 +82,7 @@ function try_runbenchmarks(;
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         primary = "dev",
         comparison = "main",
-        workers = 16,#Sys.CPU_THREADS,
+        workers = 5,#Sys.CPU_THREADS,
         startup_file = Base.JLOptions().startupfile == 1 ? "yes" : "no",
         are_different = are_different,
         )
