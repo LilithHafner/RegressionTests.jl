@@ -56,7 +56,7 @@ using Pkg
                     println.(changes)
                     run(`git add $src_file`)
                     run(`git commit -m "Introduce regression"`)
-                    t = @time @test isempty(runbenchmarks(project = ".")) # Pass
+                    t = @elapsed @test isempty(runbenchmarks(project = ".")) # Pass
                     println("Runtime for negative runbenchmarks: $t")
                     # TODO: handle this case well
                     # TODO: track the runtime of these runbenchmark calls... but we can't use RegressionTests.jl because that would be too slow.
