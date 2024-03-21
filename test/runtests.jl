@@ -54,7 +54,7 @@ using Pkg
 
                     # This test is allowed to fail because we currently do not suppress inter-tracked-result interactions
                     # The `isempty(runbenchmarks(project = "."))` test below is a false positive test that should always pass.
-                    # It's not catastrophic to get these my_prod false positives, becasue there are also true positives being reported.
+                    # It's not catastrophic to get these my_prod false positives becasue there are also true positives being reported.
                     # @test !any(occursin("my_prod", c.expr) for c in changes) # Those didn't change [This is the a false positive test]
 
                     @test any(occursin("my_sum", c.expr) for c in changes) # This did change
