@@ -49,7 +49,7 @@ using Pkg
                     new_src = replace(old_src, "my_sum(x) = sum(x)" => "my_sum(x) = sum(Float64.(x))")
                     write(src_file, new_src)
                     # t = @elapsed changes = runbenchmarks(project = ".") # Fail
-                    println("Runtime for positive runbenchmarks: $t")
+                    # println("Runtime for positive runbenchmarks: $t")
                     @test !isempty(changes)
 
                     # This test is allowed to fail because we currently do not suppress inter-tracked-result interactions
