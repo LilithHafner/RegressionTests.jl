@@ -126,7 +126,7 @@ function try_runbenchmarks(;
             run(`git config user.email "lilithhafnerbot@gmail.com"`)
             run(`git checkout -b $dev_branch`)
             run(`git add .`)
-            run(`git commit --allow-empty -m "Commit changes in workind directory to emulate dev"`)
+            run(`git commit --allow-empty -m "Commit changes in working directory to emulate dev"`)
         end
 
         project = new_project
