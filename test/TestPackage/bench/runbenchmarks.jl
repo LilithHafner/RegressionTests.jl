@@ -15,9 +15,9 @@ for len in [1, 10, 100]
         @track @elapsed for _ in 1:100 my_prod(x) end
         @track @elapsed for _ in 1:100 my_prod(x) end
 
-        @track @b my_sum(x)
-        @track @b my_prod(x)
-        @track @be my_sum(x)
-        @track @be my_prod(x)
+        @track @b my_sum(x) seconds=.01
+        @track @b my_prod(x) seconds=.01
+        @track @be my_sum(x) seconds=.01
+        @track @be my_prod(x) seconds=.01
     end
 end
