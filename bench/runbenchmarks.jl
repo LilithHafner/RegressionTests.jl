@@ -36,7 +36,7 @@ for n in 1:50
     end
 
     # This is the same as the previous 6 lines, but a bit more thourough and more concise:
-    # @track @be n rand
+    # @track @be n rand seconds=.01
 end
 
 for k in 1:100_000
