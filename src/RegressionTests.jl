@@ -119,9 +119,7 @@ function try_runbenchmarks(;
     for rev in (primary, comparison)
         if rev != "dev"
             cd(project) do # Mostly for CI
-                println("CD")
                 if success(`git status`) && !success(`git rev-parse --verify $rev`)
-                    println("Fetch")
                     iob = IOBuffer()
                     wait(run(`git remote`, devnull, iob; wait=false))
                     remotes = split(String(take!(iob)), '\n', keepempty=false)
@@ -161,10 +159,7 @@ function try_runbenchmarks(;
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
-        @show project
-        @show rev
         Pkg.add(path=project, rev=rev, io=devnull)
-        println("Ok")
         Pkg.instantiate(io=devnull)
     end
     function spawn_worker(worker, out, err)
