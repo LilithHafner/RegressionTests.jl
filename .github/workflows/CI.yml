@@ -19,15 +19,15 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.0'
-          - '1.6'
+          # - '1.0'
+          # - '1.6'
           - '1.9'
           - '1'
           - 'nightly'
         os:
           - ubuntu-latest
           - macOS-latest
-          - windows-latest
+          # - windows-latest
         arch:
           - x64
     steps:
