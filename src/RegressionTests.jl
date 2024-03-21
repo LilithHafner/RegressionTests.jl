@@ -82,9 +82,9 @@ function try_runbenchmarks(;
         bench_file = joinpath(bench_project, "runbenchmarks.jl"),
         primary = "dev",
         comparison = "main",
-        workers = 16,#Sys.CPU_THREADS,
+        workers = 5,#Sys.CPU_THREADS,
         startup_file = Base.JLOptions().startupfile == 1 ? "yes" : "no",
-        are_different = are_very_different,
+        are_different = are_different,
         )
 
     commands = Vector{Cmd}(undef, workers)
@@ -108,7 +108,7 @@ function try_runbenchmarks(;
         end
     end
 
-    lens = 8, 16, 32, 64
+    lens = 45, 75, 120, 300
     revs = shuffle!(vcat(falses(lens[1]), trues(lens[1])))
     # TODO take a random shuffle that fails the first "plausibly different" test
     # so that things that are literally equal will never make it past the first round
@@ -116,12 +116,8 @@ function try_runbenchmarks(;
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
     datas = Vector{Vector{Trackable}}(undef, length(revs))
 
-    function setup_env(i, worker)
-        rev = [primary, comparison][revs[i]+1]
-        Pkg.activate(projects[worker], io=devnull)
-        if rev == "dev"
-            Pkg.develop(path=project, io=devnull)
-        else
+    for rev in (primary, comparison)
+        if rev != "dev"
             cd(project) do # Mostly for CI
                 if success(`git status`) && !success(`git rev-parse --verify $rev`)
                     iob = IOBuffer()
@@ -135,8 +131,35 @@ function try_runbenchmarks(;
                     end
                 end
             end
-            Pkg.add(path=project, rev=rev, io=devnull)
         end
+    end
+
+    new_project = nothing
+    if "dev" ∈ (primary, comparison)
+        dev_branch = "RegressionTests_tmp_"*repr(rand(UInt128))[3:end]
+        new_project = tempname()
+        cp(project, new_project)
+        cd(new_project) do
+            run(`git config user.name "RegressionTests.jl"`) # This is local to the temp project
+            run(`git config user.email "lilithhafnerbot@gmail.com"`)
+            run(`git checkout -b $dev_branch`)
+            run(`git add .`)
+            run(`git commit --allow-empty -m "Commit changes in working directory to emulate dev"`)
+        end
+
+        project = new_project
+        if primary == "dev"
+            primary = dev_branch
+        end
+        if comparison == "dev"
+            comparison = dev_branch
+        end
+    end
+
+    function setup_env(i, worker)
+        rev = [primary, comparison][revs[i]+1]
+        Pkg.activate(projects[worker], io=devnull)
+        Pkg.add(path=project, rev=rev, io=devnull)
         Pkg.instantiate(io=devnull)
     end
     function spawn_worker(worker, out, err)
@@ -409,6 +432,8 @@ function try_runbenchmarks(;
             end
         end
     end
+
+    new_project === nothing || rm(new_project; force=true, recursive=true)
 
     return changes
 end

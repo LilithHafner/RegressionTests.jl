@@ -29,7 +29,7 @@ for n in 1:50
     #     [minimum(res).time, Chairmarks.median(res).time, Chairmarks.mean(res).time]
     # end
     @group begin
-        res = @be n rand
+        res = @be n rand seconds=.01
         @track minimum(res).time
         @track Chairmarks.median(res).time
         @track Chairmarks.mean(res).time
@@ -39,7 +39,7 @@ for n in 1:50
     # @track @be n rand
 end
 
-for k in 1:1_000_000
+for k in 1:100_000
     # 1e-10 false positivity * 4e6 tracked values =>
     # this should cause CI to fail at most 1/2500 times.
     @track k
