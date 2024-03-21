@@ -116,6 +116,26 @@ function try_runbenchmarks(;
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
     datas = Vector{Vector{Trackable}}(undef, length(revs))
 
+    for rev in (primary, comparison)
+        if rev != "dev"
+            cd(project) do # Mostly for CI
+                println("CD")
+                if success(`git status`) && !success(`git rev-parse --verify $rev`)
+                    println("Fetch")
+                    iob = IOBuffer()
+                    wait(run(`git remote`, devnull, iob; wait=false))
+                    remotes = split(String(take!(iob)), '\n', keepempty=false)
+                    if length(remotes) == 1
+                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
+                        run(ignorestatus(`git checkout $rev`))
+                        run(ignorestatus(`git switch - --detach`))
+                        println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
+                    end
+                end
+            end
+        end
+    end
+
     new_project = nothing
     if "dev" ∈ (primary, comparison)
         dev_branch = "RegressionTests_tmp_"*repr(rand(UInt128))[3:end]
@@ -141,21 +161,6 @@ function try_runbenchmarks(;
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
-        cd(project) do # Mostly for CI
-            println("CD")
-            if success(`git status`) && !success(`git rev-parse --verify $rev`)
-                println("Fetch")
-                iob = IOBuffer()
-                wait(run(`git remote`, devnull, iob; wait=false))
-                remotes = split(String(take!(iob)), '\n', keepempty=false)
-                if length(remotes) == 1
-                    run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
-                    run(ignorestatus(`git checkout $rev`))
-                    run(ignorestatus(`git switch - --detach`))
-                    println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
-                end
-            end
-        end
         @show project
         @show rev
         Pkg.add(path=project, rev=rev, io=devnull)
