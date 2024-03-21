@@ -129,9 +129,9 @@ function try_runbenchmarks(;
                     wait(run(`git remote`, devnull, iob; wait=false))
                     remotes = split(String(take!(iob)), '\n', keepempty=false)
                     if length(remotes) == 1
-                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`), devnull, devnull)
-                        run(ignorestatus(`git checkout $rev`), devnull, devnull)
-                        run(ignorestatus(`git switch - --detach`), devnull, devnull)
+                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`), devnull, devnull, devnull)
+                        run(ignorestatus(`git checkout $rev`), devnull, devnull, devnull)
+                        run(ignorestatus(`git switch - --detach`), devnull, devnull, devnull)
                         # println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
                     end
                 end
@@ -147,9 +147,9 @@ function try_runbenchmarks(;
         cd(new_project) do
             run(`git config user.name "RegressionTests.jl"`) # This is local to the temp project
             run(`git config user.email "lilithhafnerbot@gmail.com"`)
-            run(`git checkout -b $dev_branch`, devnull, devnull)
+            run(`git checkout -b $dev_branch`, devnull, devnull, devnull)
             run(`git add .`)
-            run(`git commit --allow-empty -m "Commit changes in working directory to emulate dev"`, devnull, devnull)
+            run(`git commit --allow-empty -m "Commit changes in working directory to emulate dev"`, devnull, devnull, devnull)
         end
 
         project = new_project
