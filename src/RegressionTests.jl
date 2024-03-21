@@ -84,7 +84,7 @@ function try_runbenchmarks(;
         comparison = "main",
         workers = 16,#Sys.CPU_THREADS,
         startup_file = Base.JLOptions().startupfile == 1 ? "yes" : "no",
-        are_different = are_very_different,
+        are_different = are_different,
         )
 
     commands = Vector{Cmd}(undef, workers)
@@ -108,7 +108,7 @@ function try_runbenchmarks(;
         end
     end
 
-    lens = 8, 16, 32, 64
+    lens = 45, 75, 120, 300
     revs = shuffle!(vcat(falses(lens[1]), trues(lens[1])))
     # TODO take a random shuffle that fails the first "plausibly different" test
     # so that things that are literally equal will never make it past the first round
