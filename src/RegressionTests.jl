@@ -116,27 +116,44 @@ function try_runbenchmarks(;
     runtime_metadatas = Vector{Vector{Int}}(undef, length(revs))
     datas = Vector{Vector{Trackable}}(undef, length(revs))
 
+    new_project = nothing
+    if "dev" ∈ (primary, comparison)
+        dev_branch = "RegressionTests_tmp_"*repr(rand(UInt128))[3:end]
+        new_project = tempname()
+        cp(project, new_project)
+        cd(new_project) do
+            run(`git init`)
+            run(`git checkout -b $dev_branch`)
+            run(`git add .`)
+            run(`git commit --allow-empty -m "Commit changes in workind directory to emulate dev" --author="RegressionTests.jl <lilithhafnerbot@gmail.com>"`)
+        end
+
+        project = new_project
+        if primary == "dev"
+            primary = dev_branch
+        end
+        if comparison == "dev"
+            comparison = dev_branch
+        end
+    end
+
     function setup_env(i, worker)
         rev = [primary, comparison][revs[i]+1]
         Pkg.activate(projects[worker], io=devnull)
-        if rev == "dev"
-            Pkg.develop(path=project, io=devnull)
-        else
-            cd(project) do # Mostly for CI
-                if success(`git status`) && !success(`git rev-parse --verify $rev`)
-                    iob = IOBuffer()
-                    wait(run(`git remote`, devnull, iob; wait=false))
-                    remotes = split(String(take!(iob)), '\n', keepempty=false)
-                    if length(remotes) == 1
-                        run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
-                        run(ignorestatus(`git checkout $rev`))
-                        run(ignorestatus(`git switch - --detach`))
-                        println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
-                    end
+        cd(project) do # Mostly for CI
+            if success(`git status`) && !success(`git rev-parse --verify $rev`)
+                iob = IOBuffer()
+                wait(run(`git remote`, devnull, iob; wait=false))
+                remotes = split(String(take!(iob)), '\n', keepempty=false)
+                if length(remotes) == 1
+                    run(ignorestatus(`git fetch $(only(remotes)) $rev --depth=1`))
+                    run(ignorestatus(`git checkout $rev`))
+                    run(ignorestatus(`git switch - --detach`))
+                    println("Fetched $rev. Status: ", success(`git rev-parse --verify $rev`))
                 end
             end
-            Pkg.add(path=project, rev=rev, io=devnull)
         end
+        Pkg.add(path=project, rev=rev, io=devnull)
         Pkg.instantiate(io=devnull)
     end
     function spawn_worker(worker, out, err)
@@ -409,6 +426,8 @@ function try_runbenchmarks(;
             end
         end
     end
+
+    new_project === nothing || rm(new_project; force=true, recursive=true)
 
     return changes
 end
