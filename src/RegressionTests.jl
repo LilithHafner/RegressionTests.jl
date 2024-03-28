@@ -90,6 +90,7 @@ function try_runbenchmarks(;
         workers = 5,#Sys.CPU_THREADS,
         startup_file = Base.JLOptions().startupfile == 1 ? "yes" : "no",
         are_different = are_different,
+        allow_version_mismatch = false,
         )
 
     commands = Vector{Cmd}(undef, workers)
@@ -104,7 +105,8 @@ function try_runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        script = "let; using RegressionTests; RegressionTests.FILTER[] = RegressionTests.deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests; RegressionTests.serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
+        verify_version = allow_version_mismatch ? "" : " RegressionTests.verify_source($(@__DIR__));"
+        script = "let; using RegressionTests;$verify_version RegressionTests.FILTER[] = RegressionTests.deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests; RegressionTests.serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
         commands[i] = if VERSION < v"1.10.0-alpha1"
             # --compiled-modules=no is a workaround for https://github.com/JuliaLang/julia/issues/52265
             `$julia_exe --compiled-modules=no --startup-file=$startup_file --project=$(projects[i]) -e $script`
@@ -687,6 +689,13 @@ function are_very_different(tags::BitVector, data::AbstractVector{<:Real}; incre
 end
 
 # Callie
+
+verify_source(path) = path == @__DIR__ || error("""
+    RegressionTests version mismatch
+    Outer process is at $path
+    Inner process is at $(@__DIR__)
+
+    Hint: make sure the bench project and the test project have the same version of RegressionTests.""")
 
 const FILTER = Ref{Union{Nothing, BitVector}}(nothing)
 const STATIC_METADATA = Tuple{Symbol, Int, String}[]
