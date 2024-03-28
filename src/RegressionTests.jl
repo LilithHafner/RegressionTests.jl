@@ -105,7 +105,7 @@ function try_runbenchmarks(;
         mkdir(projects[i])
         # bench_projectfile_exists && cp(bench_projectfile, joinpath(projects[i], "Project.toml"))
         cp(bench_project, projects[i], force=true)
-        verify_version = allow_version_mismatch ? "" : " RegressionTests.verify_source($(@__DIR__));"
+        verify_version = allow_version_mismatch ? "" : " RegressionTests.verify_source($(repr(@__DIR__)));"
         script = "let; using RegressionTests;$verify_version RegressionTests.FILTER[] = RegressionTests.deserialize($(repr(filter_path))); end; let; include($rfile); end; using RegressionTests; RegressionTests.serialize($(repr(channels[i])), (RegressionTests.STATIC_METADATA, RegressionTests.RUNTIME_METADATA, RegressionTests.DATA))"
         commands[i] = if VERSION < v"1.10.0-alpha1"
             # --compiled-modules=no is a workaround for https://github.com/JuliaLang/julia/issues/52265
@@ -690,10 +690,10 @@ end
 
 # Callie
 
-verify_source(path) = path == @__DIR__ || error("""
+verify_source(path) = (path == @__DIR__) || error("""
     RegressionTests version mismatch
-    Outer process is at $path
-    Inner process is at $(@__DIR__)
+    Outer process is at $path (version $(Pkg.TOML.parsefile(joinpath(dirname(dirname(path)), "Project.toml"))["version"]))
+    Inner process is at $(@__DIR__) (version $(Pkg.TOML.parsefile(joinpath(dirname(dirname(@__DIR__)), "Project.toml"))["version"]))
 
     Hint: make sure the bench project and the test project have the same version of RegressionTests.""")
 
