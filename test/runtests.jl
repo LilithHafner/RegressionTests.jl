@@ -21,7 +21,7 @@ using Pkg
 
     # TODO: make this work when it comes after "Example usage" as well.
     @testset "Regression tests" begin
-        RegressionTests.test(skip_unsupported_platforms=true)
+        RegressionTests.test(skip_unsupported_platforms=true, allow_version_mismatch=true)
     end
 
     if RegressionTests.is_platform_supported()
@@ -48,7 +48,7 @@ using Pkg
                     old_src = read(src_file, String)
                     new_src = replace(old_src, "my_sum(x) = sum(x)" => "my_sum(x) = sum(Float64.(x))")
                     write(src_file, new_src)
-                    t = @elapsed changes = runbenchmarks(project = ".") # Fail
+                    t = @elapsed changes = runbenchmarks(project = ".", allow_version_mismatch=true) # Fail
                     println("Runtime for positive runbenchmarks: $t")
                     @test !isempty(changes)
 
@@ -61,7 +61,7 @@ using Pkg
                     println.(changes)
                     run(`git add $src_file`)
                     run(`git commit -m "Introduce regression"`)
-                    t = @elapsed @test isempty(runbenchmarks(project = ".")) # Pass
+                    t = @elapsed @test isempty(runbenchmarks(project = ".", allow_version_mismatch=true)) # Pass
                     println("Runtime for negative runbenchmarks: $t")
                     # TODO: handle this case well
                     # TODO: track the runtime of these runbenchmark calls... but we can't use RegressionTests.jl because that would be too slow.
