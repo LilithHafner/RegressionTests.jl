@@ -694,7 +694,6 @@ verify_source(path) = (path == dirname(@__DIR__)) || error("""
     RegressionTests version mismatch
     Outer process is at $path (version $(Pkg.TOML.parsefile(joinpath(path, "Project.toml"))["version"]))
     Inner process is at $(dirname(@__DIR__)) (version $(Pkg.TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))["version"]))
-
     Hint: make sure the bench project and the test project have the same version of RegressionTests.""")
 
 const FILTER = Ref{Union{Nothing, BitVector}}(nothing)
