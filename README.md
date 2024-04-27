@@ -6,7 +6,7 @@ Regression tests without false positives
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://LilithHafner.github.io/RegressionTests.jl/dev/)
 [![Build Status](https://github.com/LilithHafner/RegressionTests.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/LilithHafner/RegressionTests.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/LilithHafner/RegressionTests.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/LilithHafner/RegressionTests.jl)
-[![PkgEval](https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/T/RegressionTests.svg)](https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/T/RegressionTests.html)
+[![PkgEval](https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/T/RegressionTests.svg)](https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/R/RegressionTests.html)
 [![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 
