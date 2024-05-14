@@ -147,7 +147,12 @@ function try_runbenchmarks(;
         new_project = tempname()
         cp(project, new_project)
         cd(new_project) do
-            run(`git config user.name "RegressionTests.jl"`) # This is local to the temp project
+            try
+                run(`git config user.name "RegressionTests.jl"`) # This is local to the temp project
+            catch
+                println(ENV)
+                rethrow()
+            end
             run(`git config user.email "lilithhafnerbot@gmail.com"`)
             run(`git checkout -b $dev_branch`, devnull, devnull, devnull)
             run(`git add .`)
