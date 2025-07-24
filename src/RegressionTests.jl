@@ -40,7 +40,7 @@ function report_changes(changes)
     end
 end
 
-is_platform_supported() = VERSION >= v"1.9" && !Sys.iswindows() && ("PKGEVAL" => true) ∉ ENV
+is_platform_supported() = v"1.9" <= VERSION <= v"1.12" && !Sys.iswindows()
 
 function test(::Type{Bool}; skip_unsupported_platforms=false, kws...)
     if !is_platform_supported()
