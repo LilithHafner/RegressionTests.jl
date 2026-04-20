@@ -37,7 +37,7 @@ module MyPackage
     end
 end
 ```
-And commit your changes. This is our baseline.
+And commit all these files. This is our baseline.
 
 Now, let's add regression tests. Put this in your `test/runtests.jl` file:
 ```julia
